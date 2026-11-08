@@ -1,0 +1,50 @@
+# Owner footage, references and project decisions never belong in the starter repo.
+/projects/*
+!/projects/README.md
+/references/*
+!/references/README.md
+/style-library/catalog.json
+/style-library/projects.json
+/style-library/settings.json
+/style-library/runtime/
+/style-library/references/
+/style-library/dist/assets/posters/
+/style-library/dist/assets/techniques/
+/style-library/dist/launch.js
+/node_modules/
+/.venv/
+/.venv-*/
+# Setup-downloaded binaries/models (whisper.cpp release zip, speech/matting models) --
+# large, machine-specific, never owner data, never committed (scripts/setup.py).
+/bin/
+/models/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+/.codex/
+# Local Claude settings stay private; the studio's project skills ship with it.
+/.claude/*
+!/.claude/skills/
+.hyperframes/
+/runtime/
+/releases/
+/examples/studio-check/output/
+/examples/studio-check/assets/gsap.min.js
+
+*.log
+
+/style-library/reference-notes.json
+/style-library/writing-voice.json
+
+# Owner-fetched public covers (not bundled source assets)
+style-library/dist/assets/reference-previews/
+
+# Claude runner job records and logs (Task 14)
+/logs/

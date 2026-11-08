@@ -1,0 +1,146 @@
+[
+  {
+    "id": "zoomthru",
+    "name_key": "fx.zoomthru.name",
+    "desc_key": "fx.zoomthru.desc",
+    "category": "transition",
+    "demo": "zoomthru",
+    "instructions": "Zoom-through transition on one word (1080x1920, 30 fps). Show the trigger word centered on the outgoing scene, Karantina 700 at about 260px, color #f5ede5. Hold 0.5 s. Then scale that word from 1 to 14 over 0.7 s with ease cubic-bezier(.6,0,.9,.4) (power4.in) while blur goes 0 -> 6px, so the camera seems to fly into the letters; scale the outgoing scene behind it 1 -> 1.15 on the same ease. At 0.42 s into the zoom cut to the incoming scene, which starts at scale .6, blur 8px, opacity 0 and settles to scale 1, blur 0, opacity 1 over 0.52 s with cubic-bezier(.1,.6,.2,1) (power4.out). The mirrored eases keep the velocity matched across the cut. HyperFrames: two absolutely positioned layers on one paused GSAP timeline. If a trigger word is given, start the zoom on that word's start time from the transcript. Whole move stays under 1.2 s; add a short whoosh on the cut."
+  },
+  {
+    "id": "kinetic",
+    "name_key": "fx.kinetic.name",
+    "desc_key": "fx.kinetic.desc",
+    "category": "type",
+    "demo": "kinetic",
+    "instructions": "Kinetic typography for a short line of 2-5 words (1080x1920). One word per row, centered, Karantina 700, 130-180px, line-height .95; the key word is the largest and ember #ff6b2c, the rest #f5ede5. Backdrop #0f0b14 or the shot dimmed to 35% brightness. Each word enters from 140px on the reading-start side (right for Hebrew, left for English) with skewX(-20deg), blur 10px, opacity 0, overshoots to 8px past rest with skewX(4deg) at 70% of the move, then settles: 0.46 s, ease cubic-bezier(.2,.8,.2,1), stagger 0.17 s. If the transcript is available, start each word on its spoken timestamp instead of the fixed stagger. Hold the full line 1.5 s, then exit all words together (opacity 0, translateY -30px, 0.25 s, power2.in)."
+  },
+  {
+    "id": "mask",
+    "name_key": "fx.mask.name",
+    "desc_key": "fx.mask.desc",
+    "category": "type",
+    "demo": "mask",
+    "instructions": "Mask reveal title (1080x1920). Centered stack: a 6px ember (#ff6b2c) line 70% of the frame width, then the title (Secular One about 90px, #f5ede5), then a subtitle (Heebo 500 about 40px, #a89e95). The line scales scaleX 0 -> 1 from its reading-start edge over 0.45 s, cubic-bezier(.7,0,.2,1). Then the title rises from translateY(110%) to 0 inside an overflow:hidden wrapper sitting right under the line: 0.6 s, cubic-bezier(.2,.9,.2,1). 0.15 s later the subtitle drops from translateY(-110%) in its own mask over 0.5 s. Hold 1.3 s. Exit by reversing the masks (title down, subtitle up, 0.3 s, power2.in) while the line scales out toward the opposite edge."
+  },
+  {
+    "id": "trim",
+    "name_key": "fx.trim.name",
+    "desc_key": "fx.trim.desc",
+    "category": "shape",
+    "demo": "trim",
+    "instructions": "Trim-path line that draws itself (1080x1920). An SVG path, stroke ember #ff6b2c 10px, round caps, no fill, running in a gentle S through 3 waypoints (default: bottom reading-start 15%/86%, middle reading-end 75%/48%, top reading-start 30%/17%). Set pathLength=1, stroke-dasharray 1 and animate stroke-dashoffset 1 -> 0 over 1.3 s ease-in-out. Each waypoint has a gold (#ffc77d) 16px dot that pops (scale 0 -> 1, 0.25 s, back.out) when the stroke reaches it, and a label (Secular One about 44px, white) that fades in while rising 16px next to the dot. Labels are the steps from the script (for example idea -> shoot -> reel). Hold 1.2 s after the last label."
+  },
+  {
+    "id": "morph",
+    "name_key": "fx.morph.name",
+    "desc_key": "fx.morph.desc",
+    "category": "shape",
+    "demo": "morph",
+    "instructions": "Shape morph (1080x1920), one element animated end to end, no crossfades. An ember (#ff6b2c) circle 110px pops in centered: scale 0 -> 1, 0.35 s, cubic-bezier(.2,1.6,.3,1). It stretches into a pill 420x110 over 0.42 s, cubic-bezier(.7,0,.2,1), and shows a button label (Heebo 800, 40px, #07070a), for example '+ new video'. Hold 0.6 s, hide the label, then morph to a card 470x330 with radius 48px and background #f5ede5 over 0.5 s on the same ease (animate width, height, border-radius and background-color together with GSAP); inside, a check mark (70px) and a short result line (Heebo 700, 38px, #07070a) fade in. Hold 1.3 s. Use for a 'click -> result' moment."
+  },
+  {
+    "id": "particles",
+    "name_key": "fx.particles.name",
+    "desc_key": "fx.particles.desc",
+    "category": "shape",
+    "demo": "particles",
+    "instructions": "Particle burst on a word (1080x1920). The word (Karantina 700, about 180px, #f5ede5) slams in at center: scale 2 -> 1, opacity 0 -> 1 over 0.3 s, ease cubic-bezier(.5,0,.75,0). On landing, 30-40 particles (3-8px circles at 1080 scale x3, two thirds ember #ff6b2c, one third gold #ffc77d) shoot from the word's center to random angles, 160-250px away, shrinking to scale .3 and fading to 0 over 0.8-1.2 s with cubic-bezier(.1,.8,.3,1). The word does a small bump (scale 1 -> 1.08 -> 1, 0.24 s) at the same moment. Use a seeded random so every render is identical. Background: radial gradient #1d120c -> #07070a, or the shot dimmed. Pair with a short impact sound on the landing frame."
+  },
+  {
+    "id": "leak",
+    "name_key": "fx.leak.name",
+    "desc_key": "fx.leak.desc",
+    "category": "light",
+    "demo": "leak",
+    "instructions": "Light leak (1080x1920). A warm radial-gradient blob (rgba(255,170,90,.95) at center, rgba(255,107,44,.6) at 30%, transparent at 60%), sized about 160% of the frame, composited with mix-blend-mode: screen (FFmpeg: blend=all_mode=screen). It sweeps across the frame: translateX -40% -> 0 -> +40% while opacity goes 0 -> 1 -> 0, over 1.1 s ease-in-out. To hide a cut, place the cut exactly at the peak (0.55 s). Can also be used as a nostalgic accent on a single word. Optional: 4% film grain on top for the duration of the leak."
+  },
+  {
+    "id": "flare",
+    "name_key": "fx.flare.name",
+    "desc_key": "fx.flare.desc",
+    "category": "light",
+    "demo": "flare",
+    "instructions": "Lens-flare shine across a title (1080x1920). The title (Secular One about 100px, #f5ede5) lands with letter-spacing .3em -> 0 and opacity 0 -> 1 over 0.5 s (power3.out). Then a light band 35% of the title width, skewed -20deg, filled with linear-gradient(100deg, transparent, rgba(255,236,210,.95), transparent), sweeps across the title from -60% to 130% of its width over 0.65 s ease-in-out, clipped to the title box (overflow hidden on a wrapper, or the text used as a mask). Background: linear-gradient(160deg, #1c1410, #07070a) or the shot dimmed. Hold 1.2 s. Add a soft shimmer sound on the sweep."
+  },
+  {
+    "id": "glitch",
+    "name_key": "fx.glitch.name",
+    "desc_key": "fx.glitch.desc",
+    "category": "transition",
+    "demo": "glitch",
+    "instructions": "Glitch transition (1080x1920), about 0.5 s total. In 8 steps of 60 ms the outgoing frame is sliced: each step shows only one random horizontal band 6-22% tall (clip-path inset), shifted 15px left or right, with hue-rotate 0-180deg and an RGB split (red channel +6px, blue -6px). From step 5 the incoming scene shows through behind the slices; after step 8 cut cleanly to the incoming scene. Use a seeded random so renders are reproducible. FFmpeg alternative: rgbashift=rh=6:bh=-6 plus random crop/overlay bands for 15 frames. Add a short digital-glitch sound."
+  },
+  {
+    "id": "liquid",
+    "name_key": "fx.liquid.name",
+    "desc_key": "fx.liquid.desc",
+    "category": "transition",
+    "demo": "liquid",
+    "instructions": "Liquid transition (1080x1920). An ember (#ff6b2c) blob with an organic shape (border-radius 46% 54% 60% 40% / 50% 42% 58% 50%), 120px, starts at scale 0 on a point of interest (default 50% x, 60% y) and grows to scale 18 while rotating 120deg over 0.8 s, ease cubic-bezier(.6,0,.3,1), until it covers the frame. On the ember fill, the next scene's title (Karantina 700 about 150px, #07070a) pops in from scale .7, opacity 0, over 0.35 s with cubic-bezier(.2,1.4,.3,1). Keep the blob edge soft (1-2px blur). Optionally reveal the next scene afterwards with the same blob in reverse (scale 18 -> 0)."
+  },
+  {
+    "id": "spinblur",
+    "name_key": "fx.spinblur.name",
+    "desc_key": "fx.spinblur.desc",
+    "category": "transition",
+    "demo": "spinblur",
+    "instructions": "Spin-blur transition (1080x1920). The outgoing frame (all its layers together) rotates 0 -> 180deg, scales 1 -> 1.4 and blurs 0 -> 10px over 0.38 s with an accelerating ease cubic-bezier(.7,0,1,.5). The incoming scene starts already at rotate(-180deg) scale(1.4) blur(10px) and settles to rotate 0, scale 1, blur 0 over 0.42 s with a decelerating ease cubic-bezier(0,.5,.3,1). The cut sits at the fastest point so the velocity matches. Fill any exposed corners with the darker scene color. Add a whoosh centered on the cut."
+  },
+  {
+    "id": "cascade",
+    "name_key": "fx.cascade.name",
+    "desc_key": "fx.cascade.desc",
+    "category": "type",
+    "demo": "cascade",
+    "instructions": "Word cascade (1080x1920). The line wraps centered with 54px side padding (Secular One about 84px, white; the key word ember #ff6b2c). Each word drops from translateY(-60px), opacity 0, overshoots to +4px at 75% of the move and settles: 0.52 s, cubic-bezier(.3,0,.2,1), stagger 0.11 s in reading order. Wrap each word in <bdi> so mixed Hebrew/English lines keep their order. Background #100c0a or the shot dimmed. Hold the full line 1.4 s. Good for openers and title cards; if the transcript is available, start each word on its spoken time."
+  },
+  {
+    "id": "impact",
+    "name_key": "fx.impact.name",
+    "desc_key": "fx.impact.desc",
+    "category": "light",
+    "demo": "impact",
+    "instructions": "Impact moment with chromatic aberration, on the trigger word's frame (1080x1920). (1) A white flash overlay: opacity .7 -> 0 over 0.2 s. (2) Punch-in with shake on the shot: scale 1.08 with translate (-18px, 12px) -> (15px, -9px) -> (-6px, 6px) -> 0 while scale settles to 1, over 0.38 s total. (3) A red-shifted copy of the frame (sepia + saturate + hue-rotate -50deg, screen blend, opacity .6, offset +18px) fades out over 0.35 s. FFmpeg equivalent: rgbashift=rh=18:bh=-18 for 6 frames, a crop-based shake, and an overlay of a white color source fading out. Pair with a low bass hit."
+  },
+  {
+    "id": "pop",
+    "name_key": "fx.pop.name",
+    "desc_key": "fx.pop.desc",
+    "category": "shape",
+    "demo": "pop",
+    "instructions": "Pop-up stickers around the presenter (1080x1920). 3-5 white pill stickers (Heebo 800 about 44px, #07070a text, padding 12px 30px, radius 999px, shadow 0 18px 40px rgba(0,0,0,.3)) holding an emoji, a number or a short word taken from the script. Place them around the presenter, never over the face, at least 8% from the frame edges. Each pops: scale 0 rotate -20deg -> scale 1.2 rotate 6deg at 60% -> scale 1 rotate 0, 0.42 s, cubic-bezier(.2,1.4,.3,1), stagger 0.2 s, ideally on the matching spoken words. Hold 1.5 s, exit scale -> 0 over 0.2 s. A soft pop sound per sticker."
+  },
+  {
+    "id": "marker",
+    "name_key": "fx.marker.name",
+    "desc_key": "fx.marker.desc",
+    "category": "type",
+    "demo": "marker",
+    "instructions": "Highlighter marker (1080x1920). A sentence on screen (Heebo 700 about 72px, white, line-height 1.5, centered, 54px side padding). Behind the key word, an ember (#ff6b2c) bar with radius 12px, inset 8% from the word's top and bottom and extending 12px past it on both sides, scales scaleX 0 -> 1 from the reading-start edge (right for Hebrew, left for English) over 0.55 s with cubic-bezier(.7,0,.2,1), starting on the spoken key word. The word stays above the bar. Hold 1.4 s. Background #100c0a or the shot dimmed."
+  },
+  {
+    "id": "explode",
+    "name_key": "fx.explode.name",
+    "desc_key": "fx.explode.desc",
+    "category": "type",
+    "demo": "explode",
+    "instructions": "Letters that explode apart (1080x1920). The word (Karantina 700 about 210px, #f5ede5) sits centered for 0.9 s, then every letter flies to a random offset within +/-300px on both axes, rotates up to +/-90deg and fades to 0, all together, over 0.7 s with cubic-bezier(.2,.6,.3,1). Split into graphemes ([...word]); keep Hebrew final letter forms exactly as written. Seeded random for reproducible renders. Good for 'busting a myth'; add a short crack or shatter sound on the burst."
+  },
+  {
+    "id": "counter",
+    "name_key": "fx.counter.name",
+    "desc_key": "fx.counter.desc",
+    "category": "data",
+    "demo": "counter",
+    "instructions": "Growing bar chart with a count-up (1080x1920). Chart area inset 16% top, 12% sides, 14% bottom, with a 2px baseline #33333a. 4 bars (gap 30px, top radius 18px); heights come from the script's real data (default 30/45/52/88%); the highlighted bar is ember #ff6b2c, the rest #2c2c34. Bars grow from scaleY 0 (origin bottom) over 0.65 s with cubic-bezier(.2,1.2,.3,1), stagger 0.12 s. A big number (Karantina 700 about 130px, ember) in the top reading-start corner counts from 0 to the target over 1.1 s with ease-out-cubic (1-(1-p)^3), formatted like the source (x3.9, 38%, 1,200). Use only numbers that appear in the script. Hold 1.3 s."
+  },
+  {
+    "id": "dotwave",
+    "name_key": "fx.dotwave.name",
+    "desc_key": "fx.dotwave.desc",
+    "category": "light",
+    "demo": "dotwave",
+    "instructions": "Dot-wave background (1080x1920). A 9 x 13 grid of 18px dots (#3a2a22) inset 8% on #07070a. A diagonal wave passes through it: each dot scales 1 -> 1.9 -> 1 and its color goes #3a2a22 -> #ff6b2c -> #3a2a22 over 0.9 s ease-in-out, with delay (column + row) x 60 ms; loop the wave every 2 s as a live background. On top, a title (Secular One about 96px, #f5ede5, text-shadow 0 0 60px #07070a). Under speech keep the grid at opacity .6 so it never competes with the words."
+  }
+]

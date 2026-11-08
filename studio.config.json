@@ -1,0 +1,111 @@
+{
+  "version": 2,
+  "scope": "Starting defaults for new video projects; project brief/design overrides. Existing approved projects are not retrofitted. Carousel and presentation dimensions must be set separately.",
+  "context": "PROJECT_CONTEXT.md",
+  "workflow": [
+    "ask",
+    "storyboard",
+    "review",
+    "edit",
+    "refine"
+  ],
+  "design": {
+    "reference": "docs/DESIGN-SYSTEM.md",
+    "profile": "warm-graphite",
+    "background": "#191b1e",
+    "foreground": "#f3eee5",
+    "accent": "#f2734f",
+    "display_font": "Archivo Black",
+    "aside_font": "Instrument Serif",
+    "aside_style": "italic"
+  },
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "target_seconds": [
+      30,
+      90
+    ]
+  },
+  "delivery": {
+    "container": "mp4",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "audio_sample_rate": 48000,
+    "crf": 17,
+    "pixel_format": "yuv420p"
+  },
+  "review": {
+    "proxy_long_edge": 960,
+    "contact_sheet_interval_seconds": 5
+  },
+  "captions": {
+    "status": "Current showcase default; confirm fit and timing on actual footage",
+    "font": "Inter",
+    "weight": 800,
+    "case": "sentence",
+    "size_px": 46,
+    "max_lines": 1,
+    "words_per_phrase": [
+      2,
+      5
+    ],
+    "text": "#f3eee5",
+    "accent": "#f2734f",
+    "unspoken_text": "#a29f99",
+    "progression": "cumulative word-onset gray-to-ivory; spoken words stay ivory until phrase clears"
+  },
+  "safe_area": {
+    "status": "conservative starting margins; verify in current platform preview",
+    "top_px": 180,
+    "bottom_px": 340,
+    "left_px": 90,
+    "right_px": 180
+  },
+  "transcription": {
+    "engine": "whisper.cpp",
+    "binary": {
+      "windows": "bin/whisper/whisper-cli.exe",
+      "other": "bin/whisper/whisper-cli",
+      "path_fallback": "whisper-cli"
+    },
+    "models": {
+      "he": "models/ggml-ivrit-ai-large-v3-turbo.bin",
+      "en": "models/ggml-base.en.bin"
+    },
+    "model_sources": {
+      "he": {
+        "url": "https://huggingface.co/ivrit-ai/whisper-large-v3-turbo-ggml/resolve/main/ggml-model.bin",
+        "sha256": "c8090411113357097bfafc2b8e228ec1639fa7f5fe4ecb5d054ac0ccef8641b1",
+        "size_bytes": 1624555275,
+        "note": "ivrit.ai Hebrew fine-tune of Whisper large-v3-turbo, ggml f16. SHA-256 read from the Hugging Face repo's file-tree API (LFS oid) on 2026-11-08 and independently confirmed by downloading the file and running sha256sum on it the same day; Task 18 should still verify this hash after its own download."
+      },
+      "en": {
+        "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+        "sha256": "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
+        "size_bytes": 147964211,
+        "note": "Official whisper.cpp base.en model (ggerganov/whisper.cpp on Hugging Face). SHA-256 read the same way as the Hebrew model's, and independently confirmed by downloading the file and running sha256sum on it on 2026-11-08."
+      }
+    },
+    "word_timestamps": true
+  },
+  "matting": {
+    "backend": "hyperframes",
+    "model": "u2net_human_seg"
+  },
+  "sound_design": {
+    "creative_priority": "polish, suspense, energy, and payoff through purposeful music, effects, and silence",
+    "preferred_library": "None required: generate effects locally or use suitable free assets; a personal library is optional",
+    "subscription_status": "No subscription needed. If you use your own sound library, confirm your access and usage rights for each project.",
+    "music_default": "brief-specific; do not add automatically",
+    "sfx_preference": "Sparse physical mouse clicks, clean snaps or pops; avoid squishy, rubbery, pitched and downward digital accents",
+    "speech_priority": true,
+    "cue_timeline": "edited output",
+    "usage_coverage": "verify per account and campaign"
+  },
+  "editing": {
+    "default": "performance-led; preserve natural breaths and gestures",
+    "automatic_silence_deletion": false
+  }
+}

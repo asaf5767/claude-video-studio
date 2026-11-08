@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Collage look sample</title>
+<style>
+@font-face{font-family:"Heebo";font-style:normal;font-weight:100 900;font-display:swap;src:url(../../style-library/dist/assets/fonts/heebo-100-900-hebrew.woff) format("woff");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Heebo";font-style:normal;font-weight:100 900;font-display:swap;src:url(../../style-library/dist/assets/fonts/heebo-100-900-latin.woff) format("woff");unicode-range:U+0000-00FF}
+@font-face{font-family:"Secular One";font-style:normal;font-weight:400;font-display:swap;src:url(../../style-library/dist/assets/fonts/secular-one-400-hebrew.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Secular One";font-style:normal;font-weight:400;font-display:swap;src:url(../../style-library/dist/assets/fonts/secular-one-400-latin.woff) format("woff");unicode-range:U+0000-00FF}
+*{box-sizing:border-box}
+html,body{margin:0;width:540px;height:960px;overflow:hidden;background:#000;font-family:Heebo,sans-serif}
+.scene{position:relative;width:540px;height:960px;overflow:hidden;filter:saturate(1.22) contrast(1.05)}
+.room{position:absolute;inset:0;background:
+    repeating-linear-gradient(90deg,rgba(0,0,0,.015) 0 2px,transparent 2px 4px),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.015) 0 2px,transparent 2px 4px),
+    linear-gradient(180deg,#f3ecd8 0%,#ead9b8 100%)}
+.cut{position:absolute;filter:drop-shadow(2px 4px 0 rgba(0,0,0,.12))}
+.cut1{top:-6%;left:-10%;width:60%;height:34%;background:#9fd0c7;clip-path:polygon(0 4%,22% 0,48% 6%,76% 1%,100% 8%,96% 60%,100% 96%,70% 100%,40% 94%,8% 100%,0 70%);transform:rotate(-4deg)}
+.cut2{bottom:-8%;right:-14%;width:62%;height:40%;background:#f2b6a0;clip-path:polygon(2% 0,30% 5%,60% 0,100% 10%,94% 48%,100% 92%,66% 100%,34% 94%,0 100%,6% 50%);transform:rotate(3deg)}
+.cut3{top:30%;right:-12%;width:34%;height:22%;background:#e8d05a;clip-path:polygon(0 10%,40% 0,100% 8%,92% 70%,100% 100%,54% 92%,10% 100%,4% 60%);transform:rotate(-8deg)}
+.person{position:absolute;left:50%;bottom:4%;transform:translateX(-50%) rotate(-1.5deg);width:70%;border:8px solid #fffaf0;box-shadow:0 10px 0 rgba(0,0,0,.08),4px 16px 26px rgba(0,0,0,.28)}
+.person img{width:100%;height:auto;display:block}
+.sticker{position:absolute;background:#fff6e2;border:3px solid #241f18;border-radius:16px;box-shadow:4px 8px 0 rgba(0,0,0,.18);padding:14px 22px;transform:rotate(-6deg)}
+.title{top:6%;right:8%;font-family:"Secular One";font-size:40px;color:#c23b2b}
+.doodle-arrow{position:absolute;top:18%;left:9%;width:60px;height:60px;border:5px solid #1e3a5f;border-top:none;border-right:none;border-radius:0 0 0 40px;transform:rotate(25deg)}
+.doodle-circle{position:absolute;top:24%;right:10%;width:46px;height:46px;border:5px dashed #c23b2b;border-radius:50%}
+.caption{position:absolute;bottom:9%;left:50%;transform:translateX(-50%) rotate(2deg);background:#ffd65c;border:3px solid #241f18;box-shadow:3px 6px 0 rgba(0,0,0,.2);color:#241f18;font-family:Heebo;font-weight:800;font-size:26px;padding:12px 24px;border-radius:14px;text-align:center;white-space:nowrap}
+.tape{position:absolute;width:70px;height:26px;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.08)}
+.ltr{margin:0 .15em}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="room"></div>
+  <div class="cut cut1"></div>
+  <div class="cut cut2"></div>
+  <div class="cut cut3"></div>
+  <div class="person"><img src="../_presenter/presenter-cutout.png" alt=""></div>
+  <div class="doodle-arrow"></div>
+  <div class="doodle-circle"></div>
+  <div class="sticker title">קולאז׳<div class="tape" style="top:-14px;left:20px;transform:rotate(-8deg)"></div></div>
+  <div class="caption">קיבלנו <bdi class="ltr" dir="ltr">3</bdi> טיפים מ-<bdi class="ltr" dir="ltr">AI</bdi></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080, height=1920">
+  <title>Studio render check</title>
+  <script src="assets/gsap.min.js"></script>
+  <style>
+    @font-face { font-family: Inter; font-style: normal; font-weight: 800; src: url('assets/inter-latin-800-normal.woff2'); }
+    @font-face { font-family: Plex; font-style: normal; font-weight: 500; src: url('assets/inter-latin-800-normal.woff2'); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #111314; }
+    #studio { width: 1080px; height: 1920px; position: relative; overflow: hidden; background: #111314; color: #f5f3ed; }
+    .clip { position: absolute; inset: 0; }
+    #accent { height: 900px; background: #f2734f; color: #111314; padding: 140px 90px; }
+    #eyebrow { font: 500 26px Plex, monospace; letter-spacing: 3px; }
+    #headline { margin: 75px 0 0; font: 800 116px/1.02 Inter, sans-serif; letter-spacing: -7px; }
+    #line { width: 900px; height: 2px; background: #111314; margin-top: 70px; transform-origin: left; }
+    #caption { position: absolute; top: 936px; width: 1080px; text-align: center; font: 500 46px Plex, monospace; }
+    #beats { position: absolute; top: 1180px; left: 90px; right: 90px; display: flex; gap: 16px; }
+    .beat { flex: 1; height: 150px; border: 1px solid #485044; border-radius: 18px; display: grid; place-items: center; font: 500 28px Plex, monospace; }
+    #marker { position: absolute; top: 1140px; left: 90px; height: 4px; width: 290px; background: #f2734f; }
+    #note { position: absolute; top: 1510px; left: 90px; width: 830px; font: 500 25px/1.6 Plex, monospace; color: #a7aea3; }
+  </style>
+</head>
+<body>
+  <main id="studio" data-composition-id="studio" data-start="0" data-duration="5" data-width="1080" data-height="1920">
+    <section id="card">
+      <div id="accent">
+        <div id="eyebrow">AI VIDEO STUDIO</div>
+        <h1 id="headline">Built around<br>your best<br>take.</h1>
+        <div id="line"></div>
+      </div>
+      <div id="caption">PERFORMANCE FIRST.</div>
+      <div id="marker"></div>
+      <div id="beats"><div class="beat">HOOK</div><div class="beat">PROOF</div><div class="beat">PAYOFF</div></div>
+      <div id="note">LOCAL RENDER CHECK<br>Typography · timing · export<br><br>This is a technical sample.<br>Your footage sets the creative style.</div>
+    </section>
+  </main>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo('#eyebrow', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4 }, 0.1);
+    tl.fromTo('#headline', { opacity: 0, y: 65 }, { opacity: 1, y: 0, duration: 0.65, ease: 'power3.out' }, 0.2);
+    tl.fromTo('#line', { scaleX: 0 }, { scaleX: 1, duration: 0.65, ease: 'power3.out' }, 0.6);
+    tl.fromTo('#caption', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3 }, 1);
+    tl.fromTo('.beat', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.13 }, 1.2);
+    tl.fromTo('#marker', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 1.4);
+    tl.to('#marker', { x: 307, duration: 0.6, ease: 'power2.inOut' }, 2.2);
+    tl.to('#marker', { x: 614, duration: 0.6, ease: 'power2.inOut' }, 3.2);
+    tl.fromTo('#note', { opacity: 0 }, { opacity: 1, duration: 0.5 }, 1.8);
+    tl.to({}, { duration: 0.1 }, 4.9);
+    window.__timelines = { studio: tl };
+  </script>
+</body>
+</html>

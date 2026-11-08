@@ -1,0 +1,92 @@
+[
+  {
+    "id": "popout",
+    "name_key": "look.popout.name",
+    "desc_key": "look.popout.desc",
+    "category": "cutout",
+    "demo": "popout",
+    "requires_matte": true,
+    "instructions": "Pop-out frame (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Composite: dark backdrop #0f0b0a; a rounded window (radius 40px, 8px ember #ff6b2c border) covering 10%-90% horizontally and 44%-94% vertically shows the original (cover-fit, overflow hidden). On top, fg.webm at exactly the same scale and position as inside the window, clipped to show only the area ABOVE the window's top edge, so the head breaks out of the frame while the body stays inside. Title (Karantina 700 about 110px) above the head. Entrance: the cut-out part rises 40px and fades in, 0.55 s, cubic-bezier(.2,1.3,.3,1). FFmpeg: [original][alpha]alphamerge, crop to the area above the window, overlay. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "green",
+    "name_key": "look.green.name",
+    "desc_key": "look.green.desc",
+    "category": "background",
+    "demo": "green",
+    "requires_matte": true,
+    "instructions": "Background replace, a virtual green screen (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. New background: brand gradient linear-gradient(160deg, #ff6b2c, #7a1f0a) with subtle 45deg stripes at 6% white, or an image or screen recording the creator supplies. Layer the presenter (fg.webm, HyperFrames <video>, or FFmpeg [original][alpha]alphamerge then overlay) on top at the original scale and position. Reveal: the new background expands as a circle clip-path 0% -> 90% centered on the head (50% 40%) over 0.7 s, cubic-bezier(.7,0,.2,1). Add a light wrap (background blurred 20px, screen-blended into the cut-out edge at 15%) and nudge the presenter's color balance toward the background so the edge never looks pasted. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "behind",
+    "name_key": "look.behind.name",
+    "desc_key": "look.behind.desc",
+    "category": "cutout",
+    "demo": "behind",
+    "requires_matte": true,
+    "instructions": "Text behind the presenter (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Layers, bottom to top: the original, a huge word (Karantina 700 about 330px, ember #ff6b2c, centered, top at about 10%), then fg.webm aligned 1:1 with the original so the head and shoulders overlap the word. The word enters scale .6 -> 1 with opacity 0 -> 1 over 0.6 s, cubic-bezier(.2,1.3,.3,1), on the spoken word. Keep at least 40% of the word readable; raise it or shorten it if the head covers too much. FFmpeg: drawtext on the original, then overlay the alphamerged presenter ([original][alpha]alphamerge). If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "sticker",
+    "name_key": "look.sticker.name",
+    "desc_key": "look.sticker.desc",
+    "category": "cutout",
+    "demo": "sticker",
+    "requires_matte": true,
+    "instructions": "Sticker cut-out (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Background: gold #ffc77d with a dot grid (#e8a85a, 4.5px dots every 48px). The presenter cut-out gets a 12px white outline (grow the alpha: CSS drop-shadow 12px white in 4 directions, or FFmpeg dilation on alpha.mp4 before alphamerge) plus a soft shadow 0 30px 36px rgba(0,0,0,.35); scale to 80% of the frame height, rotated -4deg, bottom-aligned. Entrance: scale .7 rotate -14deg opacity 0 -> scale 1 rotate -4deg, 0.5 s, cubic-bezier(.2,1.4,.3,1). A paper-slap sound on landing. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "split",
+    "name_key": "look.split.name",
+    "desc_key": "look.split.desc",
+    "category": "layout",
+    "demo": "split",
+    "requires_matte": false,
+    "instructions": "Split screen (1080x1920), no matte needed. Top half (1080x960): the screen recording, demo or B-roll, cover-fit. Bottom half (1080x960): the presenter's original clip, cropped to keep the face centered with headroom. A 9px ember (#ff6b2c) divider at exactly 50%. When the demo starts, the top half slides in from translateY(-100%) over 0.5 s, cubic-bezier(.2,1,.3,1); reverse it when the demo ends and return to the full-frame presenter. FFmpeg: crop/scale each source to 1080x960, vstack, then drawbox for the divider. Keep captions out of the divider band."
+  },
+  {
+    "id": "bubble",
+    "name_key": "look.bubble.name",
+    "desc_key": "look.bubble.desc",
+    "category": "layout",
+    "demo": "bubble",
+    "requires_matte": false,
+    "instructions": "Picture-in-picture bubble (1080x1920), no matte needed. Full frame: the screen recording (cover-fit). The presenter's original clip is cropped to a square around the face and shown in a circle 42% of the frame width, 6% from the bottom and from the side with the least UI content (default bottom-left), with a 12px ember (#ff6b2c) border and shadow 0 24px 60px rgba(0,0,0,.4). It pops in: scale 0 -> 1, 0.45 s, cubic-bezier(.2,1.4,.3,1). FFmpeg: crop to a square, scale, apply a circular mask (geq alpha or a circle PNG with alphamerge), overlay. Move the bubble rather than cover something the viewer needs to read."
+  },
+  {
+    "id": "portrait",
+    "name_key": "look.portrait.name",
+    "desc_key": "look.portrait.desc",
+    "category": "background",
+    "demo": "portrait",
+    "requires_matte": true,
+    "instructions": "Portrait mode, blurred background (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Background = the original blurred about 21px and darkened slightly (FFmpeg: gblur=sigma=20,eq=brightness=-0.06; CSS: filter blur(21px) brightness(.85)); foreground = the sharp presenter from fg.webm (or [original][alpha]alphamerge) at the original position. Blur in from 0 over 0.7 s when the look starts and back out over 0.5 s when it ends. Use it to separate the presenter from a busy room. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "doc",
+    "name_key": "look.doc.name",
+    "desc_key": "look.doc.desc",
+    "category": "style",
+    "demo": "doc",
+    "requires_matte": true,
+    "instructions": "Documentary card (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Background cream #efe9dd; an ember (#ff6b2c) circle 76% of the frame width behind the head and shoulders (left edge at 12%, top at 20%); the presenter cut-out in black and white with +20% contrast (CSS grayscale(1) contrast(1.2); FFmpeg hue=s=0,eq=contrast=1.2). Two label bars tilted -3deg near the bottom on the reading-end side: the name (Secular One about 54px, white on #07070a) and the role (Heebo 800 about 40px, #07070a on ember). The circle scales 0 -> 1 in 0.45 s (back.out), then the bars slide in from off-screen one after the other (0.4 s and 0.35 s). Use for introductions. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "spot",
+    "name_key": "look.spot.name",
+    "desc_key": "look.spot.desc",
+    "category": "background",
+    "demo": "spot",
+    "requires_matte": true,
+    "instructions": "Spotlight (1080x1920). Matte first, once per source clip: python scripts/matte.py <clip> projects/<id>/build/matte/<clip stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Darken only the background: over the original lay a vignette radial-gradient(ellipse 45% 55% at 50% 60%, transparent 0%, rgba(0,0,0,.88) 70%), then put fg.webm on top aligned 1:1 so the presenter stays fully lit. Optional warm key light: a soft gold (#ffc77d) radial screen-blended onto the presenter at 10%. Fade the vignette in over 0.6 s for the dramatic line, hold, and fade out over 0.4 s. FFmpeg: vignette or a gradient overlay on the original, then overlay [original][alpha]alphamerge. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  },
+  {
+    "id": "clones",
+    "name_key": "look.clones.name",
+    "desc_key": "look.clones.desc",
+    "category": "style",
+    "demo": "clones",
+    "requires_matte": true,
+    "instructions": "Clones: three of the presenter in one room (1080x1920). Needs three takes (or three moments) of the same locked-off shot plus a clean plate (a frame with nobody in it, or the original if one take is used as the base). Matte every take, once each: python scripts/matte.py <take> projects/<id>/build/matte/<take stem>/ --progress projects/<id>/progress.json --step <your step key> (the studio then shows the background-removal progress on that step). It writes alpha.mp4 (grayscale matte, white = presenter), fg.webm (VP9 with alpha: the presenter alone) and matte.json; matte() returns {alpha, fg, frames (a frame count), backend, fps}. The matte lives on a constant-frame-rate timeline: decode the ORIGINAL footage through matte.json's retime_filter (for example -vf fps=30000/1001), scale it to matte.json's even width/height with the same filter matte.py's normalize() uses (scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1; matte.py also converts phone HDR to SDR BT.709, so do the same to the original), and render the composite at that fps; otherwise variable-frame-rate phone footage drifts against the matte and odd sizes break alphamerge. Below, 'the original' means that retimed, even-sized copy; it lines up frame for frame with alpha.mp4 and fg.webm. Layers: the clean plate (scaled the same way, scale=trunc(iw/2)*2:trunc(ih/2)*2), then the side clones (translateX -30% and +30%, scale .72, origin bottom; one may get a slight hue shift for a different 'role'), then the center clone in front (scale .88). Each appears 0.38 s after the previous one: rise 20px with opacity 0 -> 1, cubic-bezier(.2,1.3,.3,1). Smaller clones sit behind; keep the speaking clone's audio only. If no matte backend is available (matte.no-backend), say so and offer the look without the cut-out."
+  }
+]

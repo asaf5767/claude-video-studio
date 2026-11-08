@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "status": "draft",
+  "output": { "width": 1080, "height": 1920, "fps": 30, "crf": 17 },
+  "notes": "Performance assembly only. Add source paths relative to this project. Inspect HDR/framing first. Source in/out are seconds or HH:MM:SS.mmm; out is exclusive. Re-transcribe the assembly for final captions.",
+  "cuts": [],
+  "visual_plan": [],
+  "caption_plan": { "status": "pending edited speech" },
+  "audio_plan": {
+    "status": "pending footage and listening review",
+    "cue_sheet": "sound-cues.csv",
+    "music_arc": [],
+    "music_tracks": [],
+    "sound_effects": [],
+    "mix_notes": [],
+    "usage_coverage": "pending account and campaign details"
+  }
+}

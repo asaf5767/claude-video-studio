@@ -1,0 +1,26 @@
+{
+  "name": "studio-ivrit",
+  "version": "0.1.0-he.1",
+  "private": true,
+  "description": "A local home for AI-assisted video edits, storyboards and creative references.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "studio": "python3 style-library/start.py",
+    "setup": "python3 scripts/setup.py",
+    "doctor": "python3 scripts/setup.py --check",
+    "test": "python3 -m unittest discover -s style-library -p test_*.py",
+    "smoke": "python3 scripts/smoke.py"
+  },
+  "dependencies": {
+    "gsap": "3.14.2",
+    "hyperframes": "0.9.16"
+  },
+  "license": "MIT",
+  "overrides": {
+    "hyperframes": {
+      "undici": "7.30.2"
+    }
+  }
+}

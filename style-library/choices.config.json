@@ -1,0 +1,44 @@
+{
+  "cut": {
+    "label_key": "choices.step.cut",
+    "options": [
+      {"id": "tight", "label_key": "choices.cut.tight"},
+      {"id": "natural", "label_key": "choices.cut.natural"},
+      {"id": "keep-pauses", "label_key": "choices.cut.keepPauses"}
+    ]
+  },
+  "look": {
+    "label_key": "choices.step.look",
+    "ref_label_key": "choices.look.fromInspiration"
+  },
+  "sound": {
+    "label_key": "choices.step.sound",
+    "options": [
+      {"id": "music-calm", "label_key": "choices.sound.musicCalm"},
+      {"id": "music-energetic", "label_key": "choices.sound.musicEnergetic"},
+      {"id": "no-music", "label_key": "choices.sound.noMusic"}
+    ],
+    "sfx_label_key": "choices.sound.sfx",
+    "with_sfx_brief_label_key": "choices.brief.withSfx"
+  },
+  "finish": {
+    "label_key": "choices.step.finish",
+    "captions_label_key": "choices.finish.captions",
+    "length_options": [
+      {"id": "15-30", "label_key": "choices.finish.length.short"},
+      {"id": "30-60", "label_key": "choices.finish.length.medium"},
+      {"id": "60-90", "label_key": "choices.finish.length.long"}
+    ]
+  },
+  "extra": {
+    "ui_label_key": "choices.extra.label",
+    "brief_label_key": "choices.brief.extra"
+  },
+  "effects": {
+    "brief_label_key": "choices.brief.effects",
+    "when_brief_label_key": "choices.brief.when"
+  },
+  "presenter": {
+    "brief_label_key": "choices.brief.presenter"
+  }
+}

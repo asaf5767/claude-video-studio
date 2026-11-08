@@ -1,0 +1,75 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  core:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Standard-library tests also run on Intel macOS (blocking). Apple
+        # Silicon (macos-latest) runs here too but is allowed to fail via
+        # continue-on-error below: Matt's PR #26 found its hosted runner pool
+        # can fail to acquire a runner before any test starts, and that flake
+        # must not fail core or block release-gate.
+        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-latest]
+        python: ['3.11', '3.13']
+    runs-on: ${{ matrix.os }}
+    # See the macos-latest comment above: GitHub Actions reports a
+    # continue-on-error job's conclusion (success), not its outcome, to
+    # dependent jobs, so needs.core.result stays 'success' even if this cell
+    # actually failed.
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: python scripts/check_release.py --git-ref HEAD
+      # Hebrew talking-head path only (Task 22): no network, no Node/HyperFrames, no .venv.
+      # The legacy synthetic path (full `smoke.py`) needs a provisioned .venv + Pillow that
+      # this fast job never sets up; it stays a local/manual check (see docs/USABILITY-CHECK.md).
+      - run: python scripts/smoke.py --hebrew-only
+      - run: python -m unittest discover -s style-library -p 'test_*.py' -q
+      - run: node scripts/check_js.mjs
+      - run: node scripts/run_node_tests.mjs scripts
+      - run: node scripts/run_node_tests.mjs style-library
+      - run: python scripts/export_release.py --name ci-source-check
+  audits:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=high
+      - run: python -m pip install pip-audit==2.10.1
+      - run: python -m pip_audit --no-deps --disable-pip -r requirements.lock.txt
+      - run: python -m pip_audit --no-deps --disable-pip -r requirements-transcription-macos.lock.txt
+  release-gate:
+    if: always()
+    needs: [core, audits]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all test and audit jobs
+        env:
+          CORE_RESULT: ${{ needs.core.result }}
+          AUDIT_RESULT: ${{ needs.audits.result }}
+        run: test "$CORE_RESULT" = success && test "$AUDIT_RESULT" = success
