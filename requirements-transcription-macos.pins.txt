@@ -1,5 +1,5 @@
 # Optional macOS arm64 environment; hash lock generated from published PyPI distributions.
-anyio==4.15.1
+anyio==4.16.0
 certifi==2026.10.19
 charset-normalizer==3.5.2
 click==8.5.0
