@@ -1,5 +1,5 @@
 {
-  "candidate": "public-v0.1.0-he.1",
+  "candidate": "public-readme",
   "files": [
     {
       "path": ".gitignore",
@@ -33,8 +33,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 6714,
-      "sha256": "c39cbc39ac41f97d10aca6b30a665d3dd4973976953b0f71a5cf281e8cd3ed3d"
+      "bytes": 8848,
+      "sha256": "f670521e541c7480995a388f0ce9391e9a26fbaf9306767fde00ae8901f5e070"
     },
     {
       "path": "SETUP.md",
@@ -223,8 +223,8 @@
     },
     {
       "path": "scripts/export_release.py",
-      "bytes": 5733,
-      "sha256": "8e5a372f9b3c2595e0bc329d3381420ddd12afae97333f3d15b3f5a1db124278"
+      "bytes": 6107,
+      "sha256": "45bf04b33137c1746c66a0b6a522f43cc2299cdf0219411d721125ac224fee60"
     },
     {
       "path": "scripts/check_release.py",
@@ -523,8 +523,8 @@
     },
     {
       "path": "release-files.txt",
-      "bytes": 8162,
-      "sha256": "8ae8c518ce5ce0aa5cb8f3be953a07a3efddbb1727d7684dc51ad2fa17fae32c"
+      "bytes": 8426,
+      "sha256": "dea60287ad3535f1e63eff4fc371494217a3d6691b364e0d283af1d302ff7387"
     },
     {
       "path": "BRIEF.md",
@@ -1313,8 +1313,8 @@
     },
     {
       "path": "README.en.md",
-      "bytes": 5668,
-      "sha256": "5fbc6b4aa1288d9500faed49c45659db2eccd73f7ab47f5b731ac41ec39427c4"
+      "bytes": 7215,
+      "sha256": "4ec4fd8199da9db6df0fb2a30745d6fa3dad831b4bbb4a948bcfd040f622327f"
     },
     {
       "path": ".claude/skills/setup-studio/SKILL.md",
@@ -1330,6 +1330,41 @@
       "path": "docs/USABILITY-CHECK.md",
       "bytes": 8023,
       "sha256": "87ff7667064e57ea14da2624c61055451ca0a49205d6431fd896cafa9dacd872"
+    },
+    {
+      "path": "docs/screenshots/01-home.png",
+      "bytes": 163432,
+      "sha256": "438b5c92a524f60729cd48b052a55bc6aa552d39a7781349055232d4e2069a47"
+    },
+    {
+      "path": "docs/screenshots/02-materials-and-choices.png",
+      "bytes": 136958,
+      "sha256": "c124077ef1f5b6d8925aa178ffc3e2ea45e7b8c64b89247933604b98e6e3d397"
+    },
+    {
+      "path": "docs/screenshots/03-effects.png",
+      "bytes": 129019,
+      "sha256": "953114def4343af88ea5241098de870374f6b4ecb9fb6b40c15a3250d3459c8a"
+    },
+    {
+      "path": "docs/screenshots/04-presenter-looks.png",
+      "bytes": 584256,
+      "sha256": "dd609cc2c248841201471610e859328e43af3fb1c8888bc4d5f36ddb779c06c5"
+    },
+    {
+      "path": "docs/screenshots/05-send-to-claude.png",
+      "bytes": 37167,
+      "sha256": "d38fa373b0067631c558de939cc8c873220d15bcdc32318fcd62feb158f40fb1"
+    },
+    {
+      "path": "docs/screenshots/06-storyboard-review.png",
+      "bytes": 326810,
+      "sha256": "d229ec2074c35b745b04ca58c808a7660c0a9bd46eca74cfeb664319972494eb"
+    },
+    {
+      "path": "docs/screenshots/07-inspiration.png",
+      "bytes": 50754,
+      "sha256": "a80580b7180844ccc60e25138ed4cc0eec7e0618e43b542aad64100c18480f2e"
     }
   ],
   "scan": {

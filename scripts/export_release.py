@@ -15,7 +15,9 @@ SECRETS=[re.compile(r'(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{24,}'),re.compile(r'-----
 # used across those same look previews (see THIRD_PARTY_NOTICES.md). Everything else
 # stays on the binary blocklist below.
 CLEARED_BINARIES={'looks/soft/sample.jpg','looks/collage/sample.jpg','looks/signature/sample.jpg','looks/headline/sample.jpg',
-                   'looks/_presenter/presenter-cutout.png','style-library/dist/assets/brand/presenter-cutout.png'}
+                   'looks/_presenter/presenter-cutout.png','style-library/dist/assets/brand/presenter-cutout.png',
+                   # README screenshots of the studio itself (demo project)
+                   'docs/screenshots/01-home.png','docs/screenshots/02-materials-and-choices.png','docs/screenshots/03-effects.png','docs/screenshots/04-presenter-looks.png','docs/screenshots/05-send-to-claude.png','docs/screenshots/06-storyboard-review.png','docs/screenshots/07-inspiration.png'}
 
 def internal_paths():
     """R44: exact paths (release-internal.txt, one per line, '#' comments allowed -- no

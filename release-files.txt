@@ -266,3 +266,10 @@ README.en.md
 .claude/skills/setup-studio/SKILL.md
 style-library/test_start.py
 docs/USABILITY-CHECK.md
+docs/screenshots/01-home.png
+docs/screenshots/02-materials-and-choices.png
+docs/screenshots/03-effects.png
+docs/screenshots/04-presenter-looks.png
+docs/screenshots/05-send-to-claude.png
+docs/screenshots/06-storyboard-review.png
+docs/screenshots/07-inspiration.png

@@ -2,11 +2,13 @@
 
 > **Claude Code:** if someone sent you here to install this studio, follow the section "If you are Claude Code" at the end of this file.
 
-A video editing studio that runs on your own computer, Hebrew-first with an English switch.
-Upload your footage, pick how the video should look in a few clicks, and Claude does the edit: cuts, captions, graphics and sound.
-You see every step in the studio and approve it. Your files stay with you.
+**A Hebrew-first video editing studio that runs on your own computer.**
+Upload your take, choose how the video should look in a few taps, and Claude edits: cuts, captions, graphics and sound.
+You see every step and approve it. Free, and your files stay with you.
 
 [עברית](README.md)
+
+![The studio home: "Your first video in 3 steps" and your videos](docs/screenshots/01-home.png)
 
 ## Install with one message
 
@@ -23,6 +25,51 @@ A few things worth knowing up front:
 - Claude Code asks for your OK before each thing it does on your computer. That is normal: read its explanation and approve.
 - On Windows a window may pop up: "Do you want to allow this app to make changes?". Click "Yes".
 - On a Mac you may be asked for your computer's password (the one you log in with). You will not see it as you type, and that is normal.
+
+## How it works
+
+### 1. Upload your take and choose with taps
+
+Drop in your video, images and logo. Then choose: how tight to cut, which look, which sound and how long. No prompts to write.
+
+![Your materials and the tap choices: cut, look, sound and finish](docs/screenshots/02-materials-and-choices.png)
+
+### 2. Add effects, and choose how you look
+
+An After Effects style board: every card shows its effect in motion. You can ask for it to appear exactly when you say a certain word.
+
+![The effects board](docs/screenshots/03-effects.png)
+
+And in the "How you look" tab: a new background behind you, text that passes behind you, a sticker cut-out, split screen and more. The studio separates you from the background on your own computer, without sending anything to a service.
+
+![How you look: new background, text behind you, sticker and more (examples use an AI-generated person)](docs/screenshots/04-presenter-looks.png)
+
+### 3. Send to Claude
+
+One click and Claude starts working. The studio shows what it is doing right now: Hebrew transcription, silence cuts, captions, graphics, sound and storyboard. You can close the window; everything is saved.
+
+![Claude edits the video, step by step](docs/screenshots/05-send-to-claude.png)
+
+### 4. Review and approve
+
+For each storyboard scene: keep, change or remove, with a note in your own words. Claude fixes it from your notes, and at the end you get an MP4 ready for Instagram.
+
+![Storyboard review: scene by scene, with notes and approval](docs/screenshots/06-storyboard-review.png)
+
+### Also: inspiration from reels you like
+
+Paste a link or drop a reel you like, and the studio learns its style (pace, captions, transitions) and uses it in your next video.
+
+<img src="docs/screenshots/07-inspiration.png" alt="Saving inspiration: a link or file of a reel you like" width="460">
+
+## What is in the studio
+
+- **Hebrew interface** (switch to English with one tap), right-to-left captions.
+- **Hebrew transcription on your computer**, free.
+- **4 ready-made looks, 18 effects and 10 "how you look" looks**.
+- **Faceless reels:** just your voice works too.
+- **iPhone videos** work.
+- **Optional add-ons:** AI voice and images, with your own key.
 
 ## What you need
 
@@ -48,17 +95,6 @@ or `python3 style-library/start.py --open` on a Mac.
 
 If something gets stuck, write `/setup-studio` to Claude Code in the studio folder. It checks what is missing and finishes only that.
 The manual steps are in [SETUP.md](SETUP.md).
-
-## What is in the studio
-
-- **New video:** upload your take (iPhone videos too), images and a logo.
-- **Choose with taps:** how to cut, the look, the sound, the length.
-- **Effects and how you look:** captions, graphics, a new background behind you, text that passes behind you and more.
-- **Inspiration:** upload a reel you like and the studio learns its style.
-- **Send to Claude:** one click, and the studio shows what Claude is doing right now.
-- **Review and approve:** a storyboard per scene (keep / change / remove), notes, then the final video.
-- **Faceless:** reels with just your voice work too.
-- **Free and local:** Hebrew transcription runs on your computer. AI voice and images are optional add-ons.
 
 ## Credit and licence
 
