@@ -14,7 +14,7 @@ idna==3.20
 Jinja2==3.1.6
 llvmlite==0.50.0
 MarkupSafe==3.0.4
-mlx==0.32.3
+mlx==0.32.4
 mlx-metal==0.32.3
 mlx-whisper==0.4.3
 more-itertools==11.1.0
