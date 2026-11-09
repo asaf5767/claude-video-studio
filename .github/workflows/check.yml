@@ -38,6 +38,17 @@ jobs:
         with:
           node-version: '22'
       - run: python scripts/check_release.py --git-ref HEAD
+      # The Hebrew smoke path shells out to ffmpeg; current hosted images do not ship it.
+      - name: Install ffmpeg
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y ffmpeg
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew install ffmpeg
+          else
+            choco install ffmpeg -y
+          fi
       # Hebrew talking-head path only (Task 22): no network, no Node/HyperFrames, no .venv.
       # The legacy synthetic path (full `smoke.py`) needs a provisioned .venv + Pillow that
       # this fast job never sets up; it stays a local/manual check (see docs/USABILITY-CHECK.md).
