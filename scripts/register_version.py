@@ -29,6 +29,8 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 
 _spec = importlib.util.spec_from_file_location('studio_register', Path(__file__).resolve().parent / 'register.py')
 register = importlib.util.module_from_spec(_spec)
@@ -49,7 +51,12 @@ class RegisterError(Exception):
 
 
 def _file(project, relative):
-    if not isinstance(relative, str) or not (project / relative).is_file():
+    """`relative` when it names a file inside `project` (G9: resolved, so `..` or a link cannot
+    register a file from elsewhere)."""
+    if not isinstance(relative, str):
+        raise RegisterError('register.failed', f'{relative} is not a file in this project')
+    target = (Path(project) / relative).resolve()
+    if not target.is_relative_to(Path(project).resolve()) or not target.is_file():
         raise RegisterError('register.failed', f'{relative} is not a file in this project')
     return relative
 
@@ -128,6 +135,8 @@ def register_version(project, version, kind, *, frames=None, preview=None, cut=N
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('project', type=Path)
     parser.add_argument('--version', required=True)
@@ -141,6 +150,9 @@ def main(argv=None):
     parser.add_argument('--next-step', required=True)
     parser.add_argument('--lang', choices=['he', 'en'], default='he')
     args = parser.parse_args(argv)
+    files = [args.project / name for name in (args.frames, args.preview, args.cut, args.video, args.poster) if name]
+    if (code := jobscope.refuse(args.project, *files)) is not None:
+        return code
     try:
         result = register_version(args.project, args.version, args.kind, frames=args.frames, preview=args.preview,
                                   cut=args.cut, video=args.video, poster=args.poster, summary=args.summary, next_step=args.next_step,

@@ -5,6 +5,7 @@ Foundry).
     python scripts/addons_image.py --prompt-file <utf8.txt> --out <file.png>
                                     [--size 1024x1536] [--n 1] [--model <id>]
                                     [--project <dir>] [--force] [--allow-cost]
+    python scripts/addons_image.py --check     (ready? {"ok": true} or the coded reason; no call, no key shown)
 
 The provider is whatever `style-library/addons.py`'s `state()` says for `image`
 (`"openai-images"` or `"foundry"` -- see docs/plan/addons-contract.md); this script
@@ -25,7 +26,10 @@ auth header `Api-Key`. `STUDIO_IMAGE_ENDPOINT` (optional `.env` variable next to
 `STUDIO_IMAGE_KEY` -- see docs/plan/addons-contract.md) holds the resource's full
 deployment URL, e.g. `https://<resource>.openai.azure.com/openai/deployments/<deployment>`.
 A `provider: "foundry"` add-on with no `STUDIO_IMAGE_ENDPOINT` set is a coded
-`addons.no-endpoint` error -- the same fallback-not-error treatment as a missing key.
+`addons.no-endpoint` error -- the same fallback-not-error treatment as a missing key. The
+endpoint must be https on an Azure OpenAI / AI Foundry host (`*.openai.azure.com`,
+`*.services.ai.azure.com`, `*.cognitiveservices.azure.com`); anything else is a coded
+`addons.bad-endpoint` before the key is sent anywhere (final review C1, defence in depth).
 
 `--model` overrides the model id sent to either provider, else `STUDIO_IMAGE_MODEL`
 (`.env` or the process environment) is used if set, else `gpt-image-2.5-flare` (fix
@@ -46,14 +50,17 @@ import base64
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import addons_client as client  # noqa: E402
 
 DEFAULT_MODEL = 'gpt-image-2.5-flare'
 MODEL_ENV_KEY = 'STUDIO_IMAGE_MODEL'
 FOUNDRY_API_VERSION = '2025-04-01-preview'
 ENDPOINT_ENV_KEY = 'STUDIO_IMAGE_ENDPOINT'
+FOUNDRY_HOSTS = ('.openai.azure.com', '.services.ai.azure.com', '.cognitiveservices.azure.com')
 
 
 def _decode_images(raw, n):
@@ -75,10 +82,26 @@ def _openai_images(prompt, size, n, model, key):
     return _decode_images(raw, n)
 
 
-def _foundry_images(prompt, size, n, model, key):
+def foundry_endpoint():
+    """The configured Foundry endpoint, checked: https on an Azure OpenAI / AI Foundry host."""
     endpoint = (client.addons._read_env().get(ENDPOINT_ENV_KEY) or '').strip()
     if not endpoint:
         raise client.AddonsClientError('addons.no-endpoint', 'STUDIO_IMAGE_ENDPOINT is not set in .env.')
+    try:
+        parts = urlsplit(endpoint)
+        host = (parts.hostname or '').lower()
+        port = parts.port
+    except ValueError:
+        host, port = '', None
+    if (parts.scheme != 'https' or port not in (None, 443) or parts.username or parts.password or
+            not host.endswith(FOUNDRY_HOSTS) or parts.query or parts.fragment):
+        raise client.AddonsClientError('addons.bad-endpoint',
+                                       'STUDIO_IMAGE_ENDPOINT must be an https Azure OpenAI / AI Foundry address.')
+    return endpoint
+
+
+def _foundry_images(prompt, size, n, model, key):
+    endpoint = foundry_endpoint()
     url = endpoint.rstrip('/') + f'/images/generations?api-version={FOUNDRY_API_VERSION}'
     body = json.dumps({'model': model, 'prompt': prompt, 'size': size, 'n': n,
                         'output_format': 'png'}).encode('utf-8')
@@ -119,10 +142,23 @@ def generate(prompt, out, size='1024x1536', n=1, model=None, project=None, force
     return paths, sum(len(data) for data in images)
 
 
+def check(project=None):
+    """`{"ok": true, "provider"}` when a generation could run now (enabled, key set, a valid
+    Foundry endpoint); raises the same coded error generate() would. Never shows the key."""
+    client.use_project(project)
+    provider, _ = client.require_enabled('image')
+    if provider == 'foundry':
+        foundry_endpoint()
+    return {'ok': True, 'provider': provider}
+
+
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--prompt-file', type=Path, required=True)
-    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--check', action='store_true', help='only report whether the add-on is ready (no call)')
+    parser.add_argument('--prompt-file', type=Path)
+    parser.add_argument('--out', type=Path)
     parser.add_argument('--size', default='1024x1536')
     parser.add_argument('--n', type=int, default=1, help='images to request in this one call (default 1)')
     parser.add_argument('--model', default=None, help=f'provider model id (default {MODEL_ENV_KEY} or {DEFAULT_MODEL!r})')
@@ -130,6 +166,23 @@ def main(argv=None):
     parser.add_argument('--force', action='store_true', help='overwrite an existing --out or numbered sibling')
     parser.add_argument('--allow-cost', action='store_true', help='bypass the 4-images-per-call spending guard')
     args = parser.parse_args(argv)
+    if jobscope.active() and args.project is not None:
+        print(json.dumps({'ok': False, 'code': jobscope.CODE, 'message': '--project is not available in a studio run'}))
+        return 2
+    if (code := jobscope.refuse(args.prompt_file) or jobscope.refuse(args.out, write=True)) is not None:
+        return code
+    if jobscope.active() and (args.allow_cost or getattr(args, 'n', 1) != 1):
+        # G10: a studio run never lifts the spending guard or asks for several images.
+        print(json.dumps({'ok': False, 'code': jobscope.CODE, 'message': '--allow-cost and --n are not available in a studio run'}))
+        return 2
+    if args.check:
+        try:
+            print(json.dumps(check(args.project)))
+        except client.AddonsClientError as error:
+            return client.emit_failure(error)
+        return 0
+    if args.prompt_file is None or args.out is None:
+        parser.error('--prompt-file and --out are required')
 
     try:
         prompt = args.prompt_file.read_text(encoding='utf-8')

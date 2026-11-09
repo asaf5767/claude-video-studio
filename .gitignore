@@ -48,3 +48,10 @@ style-library/dist/assets/reference-previews/
 
 # Claude runner job records and logs (Task 14)
 /logs/
+
+# The owner-supplied original presenter photo: never committed (only the cleared cutout ships).
+/looks/_presenter/presenter.jpg
+# Internal development notes and review artefacts.
+/.superpowers/
+# A corrupt settings file the studio moved aside (it may hold the owner's settings).
+/style-library/settings.corrupt-*.json

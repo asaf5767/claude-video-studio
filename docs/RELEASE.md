@@ -34,6 +34,22 @@ The standard-library/UI matrix uses Linux and macOS Intel on Python 3.11/3.13. m
 
 Use `python3 scripts/export_release.py` to create a new source archive and checksum manifest. The default name comes from package.json. It never stages or publishes. Preserve existing archives; do not zip the entire working folder or use `git add .` as a publication audit.
 
+## Publishing the Hebrew studio to the public repository (RULING R49)
+
+The public repository `asaf5767/claude-video-studio` is the update channel users `git pull` (R46), so anything in its history is public forever. Its history is built **only from release exports**: never push this development repository, its branches or its history there (they hold internal plans, the presenter source image and a personal path). Every commit on the public `main` is one export of `release-files.txt`, nothing else.
+
+**First publication** (a fresh orphan history):
+
+1. In this repository, on the reviewed, committed release commit: `python3 scripts/check_release.py --git-ref HEAD`, then `python3 scripts/export_release.py --name claude-video-studio-<version>` (`<version>` from package.json). The archive lands in `releases/`.
+2. Make a new, empty folder **outside** this checkout, for example `../claude-video-studio-public`, and run `git init -b main` in it.
+3. Extract the archive and copy the contents of its `claude-video-studio-<version>/` folder into the new folder, **without** `RELEASE-MANIFEST.json` (it goes with the GitHub Release assets, not into git). Windows: `Expand-Archive releases\claude-video-studio-<version>.zip -DestinationPath $env:TEMP\studio-export`, then copy; macOS: `unzip` into a temporary folder, then copy.
+4. In the new folder: `git add -A`, check `git status` lists exactly the exported files, then `git commit -m "Hebrew studio v<version>"`. Run `python3 scripts/check_release.py --git-ref HEAD` there too (the tree must equal release-files.txt).
+5. With the owner's explicit go-ahead only: `git remote add origin https://github.com/asaf5767/claude-video-studio.git` and `git push origin main`. If the public repository already has a `main` from older history, replacing it needs the owner's separate decision (it changes what existing clones pull); never do that by default.
+
+**Later releases:** clone the public repository (not this one) into a fresh folder, delete every tracked file there, copy in the new export as in step 3, review `git status` (removed files must be intended), commit `Hebrew studio v<version>` on top of the public `main`, check, and push with the owner's go-ahead. The public history stays a sequence of export commits that `git pull` can follow.
+
+`export_release.py` (and so `check_release.py`) refuses any shipped text file that contains a user-profile path in any spelling (`C:\Users\<name>\`, `C:/Users/<name>/`, `/c/Users/<name>/`, `/Users/<name>/`, `/home/<name>/`) or the owner's account name (checked against a stored hash, so the name itself is never shipped).
+
 ## Version policy and beta testing
 
 Use numbered prereleases while independent-user/fresh-assistant coverage is outstanding: 0.1.0-beta.1, 0.1.0-beta.2, etc. Broad availability does not by itself prove stable compatibility. After the beta pilot passes, publish 0.1.0; use patch versions for fixes and minor versions for compatible feature additions. Describe any data migration and backup/rollback requirements explicitly.

@@ -10,3 +10,10 @@
 *.webm binary
 *.woff2 binary
 *.ico binary
+*.woff binary
+*.wav binary
+*.mp3 binary
+*.m4a binary
+*.onnx binary
+*.zip binary
+*.heic binary

@@ -15,6 +15,7 @@ import shutil
 import project_index as index
 import choices
 from atomic import atomic_write
+from security import RESERVED_NAMES
 
 KINDS = ('talking-head', 'faceless')
 LANGUAGES = ('he', 'en')
@@ -23,7 +24,6 @@ TITLE_LABEL = {'he': 'כותרת', 'en': 'Title'}
 # Windows reserved device names (case-insensitive, no extension involved here since the
 # slug becomes a directory name directly) -- a project "named" one of these would make
 # its own folder impossible to open/delete reliably on a Windows machine.
-RESERVED_NAMES = {'con', 'prn', 'aux', 'nul'} | {f'com{n}' for n in range(1, 10)} | {f'lpt{n}' for n in range(1, 10)}
 
 
 class NewProjectError(Exception):
@@ -83,7 +83,9 @@ def _brief_text(video_language, title, choices_data):
     except (OSError, ValueError):
         raise NewProjectError(503, 'newVideo.error.filesystem')
     label = TITLE_LABEL[video_language]
-    text = block.replace(f'- {label}:', f'- {label}: {title}', 1)
+    # The title is free text: neutralize comment markers so it can never end or fake the
+    # <!-- choices --> block a later save rewrites (final review M14).
+    text = block.replace(f'- {label}:', f'- {label}: {choices._brief_safe(title)}', 1)
     try:
         rendered = choices.render_block(video_language, choices_data)
     except choices.ChoicesError:
@@ -117,7 +119,7 @@ def create(body):
         data = index.registry()
         existing = {p['id'] for p in data['projects']}
         base = _slug(title)
-        if len(base) < 3 or base in RESERVED_NAMES:
+        if len(base) < 3 or base.upper() in RESERVED_NAMES:
             base = _timestamp_id()
         project_id = _unique_id(base, existing)
 

@@ -524,7 +524,8 @@ function stripMarkupNoise(literal) {
 // film-strip icon shown in place of a poster <img> that isn't ready yet or failed to load.
 const CLASS_LITERAL_ALLOWLIST = new Set(['secondary detail-download', 'secondary editor-open',
   'secondary materials-library-button', 'material-tile material-drop', 'material-thumb material-thumb-audio',
-  'material-tile material-tile-uploading', 'material-thumb material-thumb-video-pending']);
+  'material-tile material-tile-uploading', 'material-thumb material-thumb-video-pending',
+  'material-thumb material-thumb-photo']);
 
 // Group (c): reference-ui.js compares a reference's creator field against the exact
 // backend sentinel default `reference_intake.py` stores when no creator was supplied

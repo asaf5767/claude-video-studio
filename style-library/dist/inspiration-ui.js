@@ -1,19 +1,16 @@
 /* Task 13: inspiration by link or file, with style cards.
    - The add-reference dialog gets a drop zone: a dropped video makes the link optional and
      is streamed to PUT /inspiration-file (reference-ui.js calls upload() on submit).
-   - The reference dialog gets a STYLE CARD panel: "ללמוד את הסגנון" starts Claude's
-     learn-style skill (POST /claude-job) with a compact status line, the learned card is
+   - The reference dialog gets a STYLE CARD panel: "ללמוד את הסגנון" is the studio's one
+     Send-to-Claude card (send-ui.js, task learn-style: progress, cancel, copy details for
+     support, copy-to-chat), reloading the card when the run is done; the learned card is
      edited row by row with a "לשמור" pin per field (POST /style-card), and "להשתמש בסגנון
      הזה בסרטון חדש" opens the new-video dialog with this reference as its look.
-   Built with document.createElement (like materials-ui.js) so a poll tick only touches
-   the status line and never resets what the user is typing. */
+   Built with document.createElement (like materials-ui.js); SendUI polls inside its own
+   node, so a poll never resets what the user is typing. */
 window.Inspiration=(()=>{
- const VIDEO_EXT=['.mp4','.mov','.webm','.m4v'],MAX_UPLOAD=1024*1024*1024,POLL_MS=1500;
+ const VIDEO_EXT=['.mp4','.mov','.webm','.m4v'],MAX_UPLOAD=1024*1024*1024;
  const IDENTITY=['id','name_he','name_en'];
- const MESSAGE={'claude.not-logged-in':'inspiration.learn.notLoggedIn','claude.limit':'inspiration.learn.limit',
-  'claude.unknown-reference':'inspiration.error.unknownReference',busy:'inspiration.learn.busy','claude-missing':'inspiration.learn.missing'};
- const STEP={watch:'inspiration.step.watch',analyze:'inspiration.step.analyze',card:'inspiration.step.card'};
- const jobs=new Map();// reference id -> running job id, kept while the page lives
  let current=null,token=0,dropped=null;
 
  function el(tag,props={},...children){
@@ -85,26 +82,29 @@ window.Inspiration=(()=>{
   const panel=$('#style-card-panel');if(!current)return;
   const {entry,card}=current,ready=!!card?.exists;
   panel.setAttribute('aria-label',I18N.t('inspiration.card.sectionAria'));
-  const learn=el('button',{type:'button',class:ready?'secondary':'primary',textContent:I18N.t(ready?'inspiration.learn.again':'inspiration.learn.button')});
-  learn.addEventListener('click',startLearning);
-  current.learnButton=learn;learn.disabled=!!current.job;
   current.status=el('p',{class:'style-card-status',attrs:{role:'status'},textContent:current.statusText||''});
-  const prompt=el('textarea',{readOnly:true,rows:3,value:I18N.t('inspiration.learn.chatPrompt',{id:entry.id}),attrs:{'aria-label':I18N.t('inspiration.learn.promptAria'),spellcheck:'false'}});
-  const copy=el('button',{type:'button',class:'secondary',textContent:I18N.t('inspiration.learn.copy')});
-  copy.addEventListener('click',async()=>{
-   try{await navigator.clipboard.writeText(prompt.value);copy.textContent=I18N.t('inspiration.learn.copied');}
-   catch{prompt.focus();prompt.select();setStatus(I18N.t('inspiration.learn.copyManual'));}
-  });
-  current.fallback=el('div',{class:'style-card-fallback',hidden:!current.showFallback},el('p',{textContent:I18N.t('inspiration.learn.fallbackHelp')}),prompt,copy);
+  const send=el('div',{class:'style-card-send'});
   const parts=[
    el('p',{class:'eyebrow',textContent:I18N.t('inspiration.card.eyebrow')}),
    el('h3',{textContent:I18N.t(ready?'inspiration.card.titleReady':'inspiration.card.titleEmpty')}),
    el('p',{class:'style-card-rule',textContent:I18N.t('inspiration.card.rule')}),
    el('p',{class:'style-card-intro',textContent:card?I18N.t(ready?'inspiration.card.introReady':'inspiration.card.introEmpty'):I18N.t(current.loadFailed?'inspiration.card.loadError':'inspiration.card.loading')}),
-   el('div',{class:'style-card-actions'},learn),current.status,current.fallback,
+   send,current.status,
   ];
   if(ready)parts.push(editor());
   panel.replaceChildren(...parts);
+  mountSend(send);
+ }
+
+ // The one Send-to-Claude card (send-ui.js) runs learn-style: re-mounting it on every render
+ // keeps a running job (SendUI takes it over); when the run is done the card is reloaded.
+ function mountSend(node){
+  const mine=current;if(!window.SendUI)return;
+  mine.send=window.SendUI.mount(node,mine.entry.id,{task:'learn-style',
+   sendLabel:()=>I18N.t(mine.card?.exists?'inspiration.learn.again':'inspiration.learn.button'),
+   // Re-learning rewrites the card; pinned rows are kept by the server, the rest change.
+   beforeSend:()=>!(mine.card?.exists&&typeof confirm==='function'&&!confirm(I18N.t('inspiration.learn.confirmAgain'))),
+   onDone:()=>{if(mine===current)load(mine.entry,mine.token);}});
  }
 
  function editor(){
@@ -162,75 +162,20 @@ window.Inspiration=(()=>{
   render();
  }
 
- function stepLine(result){
-  const steps=result.steps||[];
-  const at=steps.findIndex(s=>s.state==='running'),index=at>=0?at:steps.findIndex(s=>s.state==='todo');
-  if(index<0)return I18N.t('inspiration.learn.starting');
-  const step=steps[index];
-  return I18N.t('inspiration.learn.running',{n:index+1,total:steps.length,step:STEP[step.key]?I18N.t(STEP[step.key]):step.detail||step.key});
- }
-
- async function startLearning(){
-  if(!current||current.job)return;
-  // Re-learning rewrites the card; pinned rows are kept by the server, the rest change.
-  if(current.card?.exists&&typeof confirm==='function'&&!confirm(I18N.t('inspiration.learn.confirmAgain')))return;
-  const mine=current,id=mine.entry.id;
-  mine.showFallback=false;mine.fallback.hidden=true;mine.learnButton.disabled=true;setStatus(I18N.t('inspiration.learn.starting'));
-  try{
-   const response=await fetch('/claude-job',{method:'POST',headers:{'Content-Type':'application/json','X-Studio-Action':'claude-job'},body:JSON.stringify({reference:id,task:'learn-style'})});
-   const result=await json(response);
-   if(response.status===409&&result.error==='busy'&&typeof result.job==='string'){attach(mine,result.job);return;}
-   if(!response.ok){
-    if(result.error==='claude-missing'&&mine===current){mine.showFallback=true;mine.fallback.hidden=false;}
-    throw Error(I18N.t(MESSAGE[result.error]||'inspiration.learn.failed'));
-   }
-   attach(mine,result.job);
-  }catch(failure){if(mine===current){setStatus(message(failure));mine.learnButton.disabled=false;}}
- }
-
- function attach(mine,job){
-  jobs.set(mine.entry.id,job);
-  if(mine!==current||mine.job===job)return;
-  mine.job=job;if(mine.learnButton)mine.learnButton.disabled=true;setStatus(I18N.t('inspiration.learn.starting'));poll(mine);
- }
-
- // A page reload forgets the in-memory job: ask the runner for this reference's running job
- // (GET /claude-job?reference=, Task 15). Without that route the reply is not usable JSON and
- // is ignored; pressing the button then still re-attaches through the 409 "busy" reply.
- async function lookup(mine){
-  try{
-   const response=await fetch('/claude-job?reference='+encodeURIComponent(mine.entry.id));
-   if(!response.ok)return;
-   const result=await json(response);
-   if(typeof result.job==='string'&&(result.state===undefined||result.state==='running'))attach(mine,result.job);
-  }catch{/* no lookup route: nothing to re-attach */}
- }
-
- async function poll(mine){
-  if(mine!==current)return;
-  try{
-   const response=await fetch('/claude-job?id='+encodeURIComponent(mine.job)),result=await json(response);
-   if(mine!==current)return;
-   if(!response.ok)throw Error(I18N.t(MESSAGE[result.error]||'inspiration.learn.failed'));
-   if(result.state==='running'){setStatus(stepLine(result));setTimeout(()=>poll(mine),POLL_MS);return;}
-   jobs.delete(mine.entry.id);mine.job=null;
-   if(result.state==='done'){mine.statusText=I18N.t('inspiration.learn.done');await load(mine.entry,mine.token);return;}
-   setStatus(I18N.t(result.state==='stopped'?'inspiration.learn.stopped':MESSAGE[result.message_key]||'inspiration.learn.failed'));
-  }catch(failure){if(mine!==current)return;jobs.delete(mine.entry.id);mine.job=null;setStatus(message(failure));}
-  if(mine===current)mine.learnButton.disabled=false;
- }
-
  function mount(entry){
   const panel=$('#style-card-panel'),mine=++token;
-  if(!entry||entry.collection!=='reference'||entry.archived_from){current=null;panel.hidden=true;panel.replaceChildren();return;}
-  current={entry,token:mine,card:null,job:jobs.get(entry.id)||null,statusText:'',showFallback:false,loadFailed:false};
+  if(!entry||entry.collection!=='reference'||entry.archived_from){if(current?.send)window.SendUI?.release(current.send);current=null;panel.hidden=true;panel.replaceChildren();return;}
+  if(current?.send)window.SendUI?.release(current.send);
+  current={entry,token:mine,card:null,statusText:'',loadFailed:false,send:null};
   panel.hidden=false;render();
-  if(current.job){setStatus(I18N.t('inspiration.learn.starting'));poll(current);}else lookup(current);
   load(entry,mine);
  }
- function unmount(){++token;current=null;const panel=$('#style-card-panel');panel.hidden=true;panel.replaceChildren();}
+ function unmount(){
+  ++token;if(current?.send)window.SendUI?.release(current.send);
+  current=null;const panel=$('#style-card-panel');panel.hidden=true;panel.replaceChildren();
+ }
  $('#style-dialog').addEventListener('close',unmount);
  document.addEventListener('i18n:change',()=>{if(current)render();});
 
- return {mount,unmount,upload,composeCard,stepLine,resetDrop,pendingFile:()=>dropped};
+ return {mount,unmount,upload,composeCard,resetDrop,pendingFile:()=>dropped};
 })();

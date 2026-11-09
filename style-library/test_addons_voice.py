@@ -410,6 +410,22 @@ class AddonsVoiceTest(unittest.TestCase):
         self.assertEqual(report['code'], 'addons.bad-response')
         self.assertFalse(out_path.exists())
 
+    # --- final review C1: the key-free --check the skills use instead of reading .env ---
+
+    def test_check_reports_ready_or_disabled_without_the_key(self):
+        with patch('addons_client.urllib.request.urlopen') as mock_open:
+            self.assertEqual(run_main(['--check'])[1]['code'], 'addons.voice-disabled')
+            self.enable_voice(key=None)
+            self.assertEqual(run_main(['--check']), (3, run_main(['--check'])[1]))
+            self.assertEqual(run_main(['--check'])[1]['code'], 'addons.voice-disabled')
+            self.enable_voice(key='sk-secret-voice')
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                self.assertEqual(addons_voice.main(['--check']), 0)
+        self.assertEqual(json.loads(buffer.getvalue()), {'ok': True, 'provider': 'elevenlabs'})
+        self.assertNotIn('sk-secret-voice', buffer.getvalue())
+        mock_open.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,6 +18,18 @@ CLEARED_BINARIES={'looks/soft/sample.jpg','looks/collage/sample.jpg','looks/sign
                    'looks/_presenter/presenter-cutout.png','style-library/dist/assets/brand/presenter-cutout.png',
                    # README screenshots of the studio itself (demo project)
                    'docs/screenshots/01-home.png','docs/screenshots/02-materials-and-choices.png','docs/screenshots/03-effects.png','docs/screenshots/04-presenter-looks.png','docs/screenshots/05-send-to-claude.png','docs/screenshots/06-storyboard-review.png','docs/screenshots/07-inspiration.png'}
+# A user-profile path in any spelling (final review I5): /Users/<name>/, /home/<name>/,
+# C:\Users\<name>\, C:/Users/<name>/, /c/Users/<name>/ (Git Bash), C:\\Users\\<name>\\ (JSON).
+PERSONAL_PATH=re.compile(r'(?:/|\\{1,2})(?:Users|home)(?:/|\\{1,2})[^\\/\s"\'<>|*?]+(?:/|\\)')
+# The owner's account name, kept only as a hash so this check never ships the name itself:
+# every word-like token of a shipped text file is compared against it (final review I5).
+PRIVATE_NAME_SHA256={'137010725fa7317e053ad9eab78dbe4cec53a78f460cc47447e2b344ba5312ee'}
+
+def personal(text):
+    """True when `text` holds a user-profile path or the owner's account name."""
+    if PERSONAL_PATH.search(text):return True
+    tokens={token.lower() for token in re.findall(r'[A-Za-z0-9]+',text)}
+    return any(hashlib.sha256(token.encode()).hexdigest() in PRIVATE_NAME_SHA256 for token in tokens)
 
 def internal_paths():
     """R44: exact paths (release-internal.txt, one per line, '#' comments allowed -- no
@@ -56,7 +68,7 @@ def sources():
         if target.suffix not in {'.woff2','.woff'} and name not in CLEARED_BINARIES:  # bundled OFL fonts and our own cleared art are the only binaries
             text=data.decode('utf-8')
             if any(pattern.search(text) for pattern in SECRETS):raise ValueError('Credential candidate; inspect '+name)
-            if re.search(r'(?:/Users|/home)/[A-Za-z0-9_.-]+/',text) or re.search(r'[A-Z]:\\Users\\[^\\]+\\',text):raise ValueError('Personal absolute path; inspect '+name)
+            if personal(text):raise ValueError('Personal absolute path or account name; inspect '+name)
         rows.append((name,data))
     if len(rows)!=len({name for name,_ in rows}):raise ValueError('Duplicate allowlist path')
     return rows

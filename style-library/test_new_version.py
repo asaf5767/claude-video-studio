@@ -24,8 +24,13 @@ class NewVersionTests(unittest.TestCase):
         (self.project / 'work/media').mkdir(parents=True)
         (self.project / 'work/media/a-1.mp4').write_bytes(b'video')
         (self.project / 'work/media/logo-2.png').write_bytes(b'png')
+        # Final review M7: never read the developer's real style-library/projects.json (a real
+        # final project with id "demo" would make these tests fail with register.final).
+        self.registry_patch = patch.object(new_version, 'REGISTRY', Path(self.tmp.name) / 'no-registry.json')
+        self.registry_patch.start()
 
     def tearDown(self):
+        self.registry_patch.stop()
         self.tmp.cleanup()
 
     def test_first_version_gets_fonts_and_font_css(self):
@@ -136,6 +141,8 @@ class NewVersionTests(unittest.TestCase):
         self.assertFalse(new_version.registered(Path(self.tmp.name) / 'elsewhere', registry))
 
     def test_cli(self):
+        # A subprocess reads the real registry: use an id no real studio has.
+        self.project = self.project.rename(self.project.with_name('cli-check-7f3a9c'))
         done = subprocess.run([sys.executable, str(REPO_ROOT / 'scripts/new_version.py'), str(self.project),
                                '--copy', 'work/media/a-1.mp4'], capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(done.returncode, 0, done.stderr)

@@ -213,6 +213,16 @@ style-library/test_fx_demos.js
 style-library/test_effects_ui.js
 style-library/claude_runner.py
 style-library/test_claude_runner.py
+scripts/jobscope.py
+scripts/media.py
+style-library/integrity.py
+style-library/learn_analysis.py
+style-library/learn_job.py
+style-library/server_messages.py
+style-library/test_jobscope.py
+style-library/test_media.py
+style-library/test_integrity.py
+style-library/test_server_messages.py
 style-library/fixtures/fake_claude.py
 scripts/tools.py
 style-library/test_tools.py

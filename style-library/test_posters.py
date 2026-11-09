@@ -112,9 +112,25 @@ class PosterGenerationTests(unittest.TestCase):
         self.assertTrue(poster.read_bytes().startswith(b'\xff\xd8'))
 
 
+    def test_hebrew_file_name_makes_a_poster_without_a_decode_error(self):
+        # Final review M1: ffmpeg's messages carry the (Hebrew) path; reading them with the
+        # Windows code page raised UnicodeDecodeError in the reader thread.
+        source = self.root / 'צילום ראשון.mp4'
+        _make_clip(source, 'libx264')
+        errors = []
+        previous = threading.excepthook
+        threading.excepthook = lambda args: errors.append(args.exc_value)
+        try:
+            poster = posters.ensure(source, self.cache, 'item-hebrew')
+        finally:
+            threading.excepthook = previous
+        self.assertIsNotNone(poster)
+        self.assertEqual(errors, [])
+
+
 class PosterTimeoutTests(unittest.TestCase):
-    """Integration fix: POSTER_TIMEOUT is a per-subprocess budget (ffprobe x2, ffmpeg x1), not
-    one combined total -- so a stuck/hanging tool on any one of those three calls must still
+    """POSTER_TIMEOUT is ONE budget for the whole poster (final review M1): each of the three
+    calls (ffprobe x2, ffmpeg x1) gets only the time left, and a stuck/hanging tool must still
     make ensure() return None (the caller's 404 placeholder), never raise into a 500. No real
     ffmpeg/ffprobe needed: tools.resolve() and subprocess.run() are mocked."""
 
@@ -151,19 +167,76 @@ class PosterTimeoutTests(unittest.TestCase):
         self.assertIsNone(poster)
 
 
+    def test_the_three_calls_share_one_budget(self):
+        seen = []
+        clock = [1000.0]
+
+        def run(args, **kwargs):
+            seen.append((args[0], kwargs['timeout'], kwargs.get('encoding'), kwargs.get('errors')))
+            clock[0] += 4  # each call takes 4 s of a 10 s budget
+            if args[0] == 'ffmpeg':
+                raise subprocess.TimeoutExpired(cmd='ffmpeg', timeout=kwargs['timeout'])
+            result = unittest.mock.Mock()
+            result.stdout = '{}'
+            return result
+
+        with unittest.mock.patch.object(posters.tools, 'resolve', side_effect=lambda name: name), \
+             unittest.mock.patch.object(posters.subprocess, 'run', side_effect=run), \
+             unittest.mock.patch.object(posters.time, 'monotonic', side_effect=lambda: clock[0]):
+            self.assertIsNone(posters.ensure(self.source, self.cache, 'item-budget'))
+        self.assertEqual([round(t) for _, t, _, _ in seen], [10, 6, 2])
+        self.assertEqual({(e, r) for _, _, e, r in seen}, {('utf-8', 'replace')})
+
+    def test_an_exhausted_budget_skips_the_remaining_calls(self):
+        clock = [1000.0]
+
+        def run(args, **kwargs):
+            clock[0] += 11
+            result = unittest.mock.Mock()
+            result.stdout = '{}'
+            return result
+
+        with unittest.mock.patch.object(posters.tools, 'resolve', side_effect=lambda name: name), \
+             unittest.mock.patch.object(posters.subprocess, 'run', side_effect=run) as mocked, \
+             unittest.mock.patch.object(posters.time, 'monotonic', side_effect=lambda: clock[0]):
+            self.assertIsNone(posters.ensure(self.source, self.cache, 'item-late'))
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_an_iphone_photo_poster_reads_the_still_without_seeking(self):
+        photo = self.root / 'IMG_0001.HEIC'
+        photo.write_bytes(b'not a real photo')
+        calls = []
+
+        def run(args, **kwargs):
+            calls.append(args)
+            if args[0] == 'ffmpeg':
+                Path(args[-1]).write_bytes(b'\xff\xd8 jpeg')
+            result = unittest.mock.Mock()
+            result.stdout = '{}'
+            return result
+
+        with unittest.mock.patch.object(posters.tools, 'resolve', side_effect=lambda name: name), \
+             unittest.mock.patch.object(posters.subprocess, 'run', side_effect=run):
+            poster = posters.ensure(photo, self.cache, 'photo')
+        self.assertIsNotNone(poster)
+        extract = next(c for c in calls if c[0] == 'ffmpeg')
+        self.assertNotIn('-ss', extract)
+        self.assertEqual(extract[1:3], ['-v', 'error'])
+        self.assertFalse([c for c in calls if 'format=duration' in c])
+
+
 class FilterSelectionTests(unittest.TestCase):
     def test_plain_scale_for_sdr_transfer(self):
         self.assertEqual(posters.filter_for(''), 'scale=540:-2')
         self.assertEqual(posters.filter_for('bt709'), 'scale=540:-2')
 
-    def test_tonemap_for_hlg(self):
-        vf = posters.filter_for('arib-std-b67')
-        self.assertTrue(vf.startswith('scale=540:-2,zscale=t=linear'))
-        self.assertIn('tonemap=tonemap=hable', vf)
-
-    def test_tonemap_for_pq_hdr10(self):
-        vf = posters.filter_for('smpte2084')
-        self.assertIn('tonemap=hable', vf)
+    def test_hdr_uses_the_edit_s_own_conversion(self):
+        # Final review M2: one HDR -> SDR recipe (matte.HDR_TO_SDR), so a poster of an iPhone
+        # HLG clip has the same skin tones as the edit.
+        import matte
+        for transfer in ('arib-std-b67', 'smpte2084'):
+            self.assertEqual(posters.filter_for(transfer), matte.HDR_TO_SDR[transfer] + ',scale=540:-2,format=yuv420p')
+        self.assertIn('curves=', posters.filter_for('arib-std-b67'))
 
 
 if __name__ == '__main__':

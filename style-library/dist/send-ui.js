@@ -1,7 +1,8 @@
 /* Task 15: "שליחה לקלוד" (Send to Claude) with live progress, and the quiet
    "או העתקה לצ׳אט" (copy to chat) fallback. Mounted on the project page right below the
-   choices card (studio.js projectPage); Task 13's "ללמוד את הסגנון" button mounts the same
-   card with {task: 'learn-style'} for one reference.
+   choices card (studio.js projectPage); the reference dialog's style-card panel
+   (inspiration-ui.js) mounts the same card with {task: 'learn-style'} for one reference --
+   one progress component with cancel, "copy details for support" and copy-to-chat for both.
 
    Server side (claude_runner.py, Task 14 + 15):
      POST /claude-job {project|reference, task}   -> 202 {job} | 409 {error: claude-missing|busy|...}
@@ -30,7 +31,8 @@ window.SendUI = (() => {
   const STEP_KEYS = ['ingest', 'transcribe', 'cut', 'captions', 'graphics', 'sound', 'storyboard', 'voice', 'scenes',
     'watch', 'analyze', 'card', 'matte'];
   const MESSAGE_KEYS = ['claude.not-logged-in', 'claude.limit', 'claude.failed', 'claude-missing', 'busy',
-    'claude.invalid-request', 'claude.unknown-project', 'claude.unknown-reference', 'claude.unknown-job', 'claude.unknown-kind'];
+    'claude.invalid-request', 'claude.unknown-project', 'claude.unknown-reference', 'claude.unknown-job', 'claude.unknown-kind',
+    'claude.studio-changed', 'claude.no-source', 'claude.unreadable-source', 'claude.card-invalid'];
   // Retrying cannot help with these: the copy-to-chat request becomes the main action.
   const COPY_FIRST = new Set(['claude-missing', 'claude.unknown-kind']);
   const finished = new Map(); // target key -> last finished status, re-shown when the page re-renders
@@ -67,7 +69,7 @@ window.SendUI = (() => {
     const done = steps.filter(step => step.state === 'done').length;
     const current = steps.find(step => step.state === 'running');
     const progress = state === 'done' ? 1 : steps.length ? (done + (current ? 0.5 : 0)) / steps.length : null;
-    const send = {action: 'send', label: I18N.t('claude.send')};
+    const send = {action: 'send', label: options.sendLabel || I18N.t('claude.send')};
     const quietCopy = {action: 'copy', label: I18N.t('claude.copy')};
     const copy = {action: 'copy', label: I18N.t('claude.copyPrimary')};
     const retry = {action: 'retry', label: I18N.t('claude.retry')};
@@ -244,7 +246,7 @@ window.SendUI = (() => {
   function render(ctl, status) {
     if (!ctl.nodes) return;
     ctl.status = status;
-    const v = view(status, {task: ctl.task, now: Date.now() / 1000});
+    const v = view(status, {task: ctl.task, now: Date.now() / 1000, sendLabel: ctl.sendLabel ? ctl.sendLabel() : ''});
     ctl.view = v;
     const n = ctl.nodes;
     n.section.dataset.state = v.state;
@@ -358,6 +360,7 @@ window.SendUI = (() => {
   }
 
   async function send(ctl) {
+    if (ctl.beforeSend && ctl.beforeSend() === false) return;
     finished.delete(ctl.key);
     ctl.job = null;
     ctl.cancelling = false;
@@ -459,16 +462,22 @@ window.SendUI = (() => {
 
   // ------------------------------------------------------------ public
 
-  // mount(el, id, {task: 'edit' | 'learn-style', onDone}) -- id is a project id (edit) or a
-  // reference id (learn-style). One card is active at a time; mounting again (a language
-  // switch or page refresh re-renders the project page) takes over any job still running.
+  // mount(el, id, {task: 'edit' | 'learn-style', onDone, sendLabel, beforeSend}) -- id is a
+  // project id (edit) or a reference id (learn-style); sendLabel() names the idle button and
+  // beforeSend() may return false to cancel a send (learn-style asks before re-learning). One
+  // card is active at a time; mounting again (a language switch or page refresh re-renders
+  // the page) takes over any job still running. release(token) hands the page back to the
+  // card that was active before (the project card under a closed reference dialog).
   function mount(el, id, options = {}) {
     const task = options.task === 'learn-style' ? 'learn-style' : 'edit';
     const key = (task === 'learn-style' ? 'reference:' : 'project:') + id;
     const previous = active;
     if (previous) { clearTimeout(previous.timer); previous.timer = null; }
     const ctl = {el, id, task, key, token: ++run, job: null, status: null, view: null, timer: null,
-      polling: false, cancelling: false, logTick: 0, onDone: typeof options.onDone === 'function' ? options.onDone : null};
+      polling: false, cancelling: false, logTick: 0, onDone: typeof options.onDone === 'function' ? options.onDone : null,
+      sendLabel: typeof options.sendLabel === 'function' ? options.sendLabel : null,
+      beforeSend: typeof options.beforeSend === 'function' ? options.beforeSend : null,
+      previous: previous && previous.key === key ? previous.previous : previous};
     active = ctl;
     build(ctl);
     const carried = previous && previous.key === key && previous.status && ['running', 'stopping'].includes(previous.status.state) ? previous : null;
@@ -497,6 +506,19 @@ window.SendUI = (() => {
     return ctl.token;
   }
 
+  function release(token) {
+    const ctl = active;
+    if (!ctl || ctl.token !== token) return;
+    clearTimeout(ctl.timer);
+    ctl.timer = null;
+    active = null;
+    const previous = ctl.previous;
+    if (!previous || !previous.el.isConnected) return;
+    active = previous;
+    if (previous.job && previous.status && ['running', 'stopping'].includes(previous.status.state)) poll(previous);
+    else if (!previous.job) resume(previous);
+  }
+
   document.addEventListener('visibilitychange', () => {
     const ctl = active;
     if (!ctl) return;
@@ -504,5 +526,5 @@ window.SendUI = (() => {
     if (ctl.job && ctl.status && ['running', 'stopping'].includes(ctl.status.state)) poll(ctl);
   });
 
-  return {mount, view, elapsed, readableLog, STEP_KEYS, MESSAGE_KEYS};
+  return {mount, release, view, elapsed, readableLog, STEP_KEYS, MESSAGE_KEYS};
 })();

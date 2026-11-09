@@ -612,3 +612,40 @@ test('learn-style mode posts the reference and copies the learn-style request', 
   await settle();
   assert.deepEqual(h.fetchCalls.find(c => c.method === 'POST').body, {reference: 'ref-one', task: 'learn-style'});
 });
+
+test('final review I3: sendLabel names the idle button and beforeSend can cancel a send', async () => {
+  const h = harness({routes: {'GET /claude-job': () => ({body: {job: null}}), 'POST /claude-job': () => ({status: 202, body: {job: JOB}})}});
+  let allow = false;
+  h.SendUI.mount(h.el, 'ref-one', {task: 'learn-style', sendLabel: () => 'ללמוד שוב', beforeSend: () => allow});
+  await settle();
+  assert.equal(find(h.el, 'send-primary').textContent, 'ללמוד שוב');
+  find(h.el, 'send-primary').click();
+  await settle();
+  assert.equal(h.fetchCalls.filter(c => c.method === 'POST').length, 0);
+  allow = true;
+  find(h.el, 'send-primary').click();
+  await settle();
+  assert.equal(h.fetchCalls.filter(c => c.method === 'POST').length, 1);
+});
+
+test('final review I3: release() hands polling back to the card that was active before', async () => {
+  let projectPolls = 0;
+  const h = harness({routes: {
+    'GET /claude-job': call => call.url.includes('project=') ? {body: running()} : call.url.includes('reference=') ? {body: {job: null}}
+      : (call.url.includes(JOB) && projectPolls++, {body: running()}),
+    'GET /claude-job-log': () => ({body: {log: ''}}),
+  }});
+  h.SendUI.mount(h.el, 'reel-one');
+  await settle();
+  const dialog = makeNode('div');
+  h.page.append(dialog);
+  const token = h.SendUI.mount(dialog, 'ref-one', {task: 'learn-style'});
+  await settle();
+  const before = projectPolls;
+  await h.tick();
+  assert.equal(projectPolls, before, 'the project card is paused while the reference card is active');
+  h.SendUI.release(token);
+  await settle();
+  assert.ok(projectPolls > before, 'release resumes the project card');
+  h.SendUI.release(token);  // a second release is a no-op
+});

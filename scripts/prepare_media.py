@@ -24,6 +24,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import matte  # noqa: E402  (HDR_TO_SDR, native_fps, ffmpeg_rate)
 import tools  # noqa: E402
 
@@ -35,12 +36,7 @@ TAG_BY_FOLDER = {'raw': 'raw', 'broll': 'broll', 'images': 'image', 'audio': 'mu
 BT709 = ['-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709']
 
 
-def _sha256(path):
-    digest = hashlib.sha256()
-    with open(path, 'rb') as handle:
-        for block in iter(lambda: handle.read(1 << 20), b''):
-            digest.update(block)
-    return digest.hexdigest()
+_sha256 = matte.sha256  # one streaming hasher for the media helpers
 
 
 def _run(args):
@@ -170,6 +166,8 @@ def main(argv=None):
     parser.add_argument('project', type=Path)
     parser.add_argument('--max-edge', type=int, default=1920)
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.project)) is not None:
+        return code
     if not (args.project / 'materials').is_dir():
         print(f'prepare_media: {args.project} has no materials folder', file=sys.stderr)
         return 2

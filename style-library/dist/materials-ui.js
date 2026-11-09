@@ -9,7 +9,10 @@
    one tile -- never a full-grid rerender that would drop focus or restart a progress bar. */
 window.MaterialsUI = (() => {
   const VIDEO_EXT = new Set(['.mp4', '.mov', '.webm', '.m4v']);
-  const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
+  // iPhone photos (HEIC/HEIF): accepted like any image, shown through the server's poster JPEG
+  // because browsers other than Safari cannot draw HEIC (final review I4).
+  const PHOTO_EXT = new Set(['.heic', '.heif']);
+  const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', ...PHOTO_EXT]);
   const TAGS = ['raw', 'broll', 'screen', 'image', 'logo', 'music', 'voice', 'sfx'];
   const TAG_LABEL_KEY = {raw: 'materials.tag.raw', broll: 'materials.tag.broll', screen: 'materials.tag.screen',
     image: 'materials.tag.image', logo: 'materials.tag.logo', music: 'materials.tag.music', voice: 'materials.tag.voice', sfx: 'materials.tag.sfx'};
@@ -138,6 +141,14 @@ window.MaterialsUI = (() => {
       return icon;
     }
 
+    function photoPlaceholder() {
+      const icon = document.createElement('div');
+      icon.className = 'material-thumb material-thumb-photo';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = '▣';
+      return icon;
+    }
+
     function buildThumb(item) {
       const kind = kindOf(item.file || '');
       if (kind === 'image') {
@@ -145,7 +156,12 @@ window.MaterialsUI = (() => {
         img.className = 'material-thumb';
         img.loading = 'lazy';
         img.alt = '';
-        img.src = fileUrl(projectId, item);
+        if (PHOTO_EXT.has(extOf(item.file || ''))) {
+          img.src = fileUrl(projectId, item) + '?poster=1';
+          img.addEventListener('error', () => replaceNode(img, photoPlaceholder()), {once: true});
+        } else {
+          img.src = fileUrl(projectId, item);
+        }
         return img;
       }
       if (kind === 'video') {

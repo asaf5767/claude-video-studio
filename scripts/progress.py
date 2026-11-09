@@ -18,6 +18,8 @@ from pathlib import Path
 import sys
 import tempfile
 import time
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 
 STEPS = {
     'talking-head': ['ingest', 'transcribe', 'cut', 'captions', 'graphics', 'sound', 'storyboard'],
@@ -46,13 +48,15 @@ def _order(skill, extra=()):
     return keys
 
 
-def _canonical(key):
-    """The full canonical order (with optional steps) of the first skill that has `key`."""
-    for skill in STEPS:
-        order = _order(skill, OPTIONAL.get(skill, {}))
-        if key in order:
-            return order
-    raise ProgressError(f'unknown step {key!r}')
+def _canonical(key, keys=()):
+    """The full canonical order (with optional steps) for `key`: of the skill the progress file
+    already belongs to (every key it holds is in that skill's order), else of the first skill
+    that has `key` -- so faceless-reel's `transcribe` lands after `voice`, not in talking-head's
+    place (final review M16)."""
+    orders = [order for order in (_order(skill, OPTIONAL.get(skill, {})) for skill in STEPS) if key in order]
+    if not orders:
+        raise ProgressError(f'unknown step {key!r}')
+    return next((order for order in orders if keys and all(k in order for k in keys)), orders[0])
 
 
 def _read(path):
@@ -98,12 +102,12 @@ def start(path, skill, extra=()):
 def update(path, key, state, detail=None):
     if state not in STATES:
         raise ProgressError(f'state must be one of: {", ".join(STATES)}')
-    order = _canonical(key)
+    steps = _read(path)
+    keys = [s['key'] for s in steps]
+    order = _canonical(key, keys)
     step = {'key': key, 'state': state}
     if detail is not None and str(detail).strip():
         step['detail'] = _detail(detail)
-    steps = _read(path)
-    keys = [s['key'] for s in steps]
     if key in keys:
         steps[keys.index(key)] = step
     else:
@@ -113,12 +117,16 @@ def update(path, key, state, detail=None):
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('file', type=Path)
     parser.add_argument('--start', metavar='SKILL', choices=sorted(STEPS))
     parser.add_argument('--with', dest='extra', action='append', default=[], metavar='STEP')
     parser.add_argument('step', nargs='*', help='<key> <state> [detail]')
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.file, write=True)) is not None:
+        return code
     try:
         if args.start:
             if args.step:

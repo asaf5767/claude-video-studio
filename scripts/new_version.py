@@ -27,6 +27,8 @@ from pathlib import Path
 import re
 import shutil
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 
 ROOT = Path(__file__).resolve().parents[1]
 FONTS = ROOT / 'style-library' / 'dist' / 'assets' / 'fonts'
@@ -155,11 +157,15 @@ def registered(folder, registry=None):
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('project', type=Path)
     parser.add_argument('--from', dest='source', metavar='vNN')
     parser.add_argument('--copy', nargs='+', default=[], metavar='FILE')
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.project, *(args.project / name for name in args.copy))) is not None:
+        return code
     try:
         result = create(args.project, args.source, args.copy)
     except VersionError as error:

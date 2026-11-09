@@ -31,7 +31,9 @@ window.I18N = (() => {
     'Writing files need safe local paths. Existing files are preserved.': 'server.writingUnsafePath',
   };
 
+  // Newer routes (and POST /review-action) answer with the i18n key itself.
   function server(message) {
+    if (typeof message === 'string' && Object.prototype.hasOwnProperty.call(strings, message.trim())) return strings[message.trim()];
     const key = typeof message === 'string' ? SERVER_MESSAGES[message.trim()] : undefined;
     return key && strings[key] !== undefined ? strings[key] : message;
   }

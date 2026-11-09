@@ -32,9 +32,11 @@ import shutil
 import tempfile
 import threading
 import uuid
+from pathlib import Path
 from datetime import datetime, timezone
 
 import looks
+from atomic import atomic_write
 import materials
 import project_index as index
 import reference_intake as intake
@@ -229,6 +231,43 @@ def card(ref_id):
     return {'reference': ref_id, 'exists': text is not None, 'text': text or '', 'fields': fields, 'body': body,
             'keys': list(CARD_KEYS), 'pinned': pinned, 'use': {k: fields[k] for k in keys if k in fields},
             'valid': text is not None and not missing, 'missing': missing, 'revision': revision}
+
+
+LOOK_LINE_CHARS = 300
+
+
+def _clean_line(value):
+    """One line of plain text: control characters dropped, whitespace collapsed, at most
+    LOOK_LINE_CHARS characters."""
+    text = ''.join(' ' if ch in '\t\r\n' else ch for ch in str(value) if ch in '\t\r\n' or ord(ch) >= 32)
+    # C1 controls and the bidi embedding/override/isolate controls (they can make a line read
+    # differently from what it says); plain RTL text needs none of them.
+    text = ''.join(ch for ch in text if not 0x7f <= ord(ch) <= 0x9f and not 0x202a <= ord(ch) <= 0x202e
+                   and not 0x2066 <= ord(ch) <= 0x2069)
+    return ' '.join(text.split())[:LOOK_LINE_CHARS]
+
+
+def look_values(ref_id):
+    """The look a project follows from reference `ref_id` (concern 3): the twelve card keys
+    (looks.REQUIRED_KEYS), the creator's pinned rows winning, each one clean line."""
+    data = card(ref_id)
+    values = {key: _clean_line(data['fields'][key]) for key in looks.REQUIRED_KEYS
+              if isinstance(data['fields'].get(key), str) and data['fields'][key].strip()}
+    return {'schema_version': 1, 'look': 'ref:' + ref_id, 'values': values, 'pinned': list(data['pinned']),
+            'valid': data['valid']}
+
+
+def write_look(project_root, look):
+    """projects/<id>/look.json for a `ref:<id>` look; removes a stale one for any other look.
+    The run may read it but never change it (claude_runner OWNED, jobscope.PROTECTED), and it
+    never reads the reference folder itself."""
+    target = Path(project_root) / 'look.json'
+    if not (isinstance(look, str) and look.startswith('ref:') and index.TOKEN.fullmatch(look[4:])):
+        target.unlink(missing_ok=True)
+        return None
+    data = look_values(look[4:])
+    atomic_write(target, (json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
+    return data
 
 
 def _write_pair(folder, files):

@@ -4,6 +4,7 @@
     python scripts/addons_voice.py --text-file <utf8.txt> --out <file.mp3>
                                     [--voice <id>] [--model <id>] [--project <dir>]
                                     [--force] [--allow-cost]
+    python scripts/addons_voice.py --check     (ready? {"ok": true} or the coded reason; no call, no key shown)
 
 Calls ElevenLabs' text-to-speech REST API --
 `POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}`
@@ -36,6 +37,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import addons_client as client  # noqa: E402
 
 # ElevenLabs' public "Rachel" demo voice; any owner-chosen voice id overrides this.
@@ -65,16 +67,44 @@ def synthesize(text, out, voice_id=DEFAULT_VOICE_ID, model=None, project=None, f
     return len(audio)
 
 
+def check(project=None):
+    """`{"ok": true, "provider"}` when narration could run now; raises the same coded error
+    synthesize() would. Never shows the key."""
+    client.use_project(project)
+    provider, _ = client.require_enabled('voice')
+    return {'ok': True, 'provider': provider}
+
+
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--text-file', type=Path, required=True)
-    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--check', action='store_true', help='only report whether the add-on is ready (no call)')
+    parser.add_argument('--text-file', type=Path)
+    parser.add_argument('--out', type=Path)
     parser.add_argument('--voice', default=DEFAULT_VOICE_ID)
     parser.add_argument('--model', default=None, help=f'ElevenLabs model id (default {MODEL_ENV_KEY} or {DEFAULT_MODEL_ID!r})')
     parser.add_argument('--project', default=None, help='studio root to use instead of this checkout')
     parser.add_argument('--force', action='store_true', help='overwrite an existing --out')
     parser.add_argument('--allow-cost', action='store_true', help='bypass the 5,000 character spending guard')
     args = parser.parse_args(argv)
+    if jobscope.active() and args.project is not None:
+        print(json.dumps({'ok': False, 'code': jobscope.CODE, 'message': '--project is not available in a studio run'}))
+        return 2
+    if (code := jobscope.refuse(args.text_file) or jobscope.refuse(args.out, write=True)) is not None:
+        return code
+    if jobscope.active() and (args.allow_cost or getattr(args, 'n', 1) != 1):
+        # G10: a studio run never lifts the spending guard or asks for several images.
+        print(json.dumps({'ok': False, 'code': jobscope.CODE, 'message': '--allow-cost and --n are not available in a studio run'}))
+        return 2
+    if args.check:
+        try:
+            print(json.dumps(check(args.project)))
+        except client.AddonsClientError as error:
+            return client.emit_failure(error)
+        return 0
+    if args.text_file is None or args.out is None:
+        parser.error('--text-file and --out are required')
 
     try:
         text = args.text_file.read_text(encoding='utf-8')

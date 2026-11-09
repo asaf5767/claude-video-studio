@@ -26,6 +26,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import tools
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -443,12 +444,16 @@ def transcribe(media, out, language, force=False):
 
 
 def main():
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('media', type=Path)
     parser.add_argument('out', type=Path)
     parser.add_argument('--language', choices=['he', 'en'], required=True)
     parser.add_argument('--force', action='store_true')
     args = parser.parse_args()
+    if (code := jobscope.refuse(args.media) or jobscope.refuse(args.out, write=True)) is not None:
+        raise SystemExit(code)
     try:
         words = transcribe(args.media, args.out, args.language, force=args.force)
     except TranscribeError as error:

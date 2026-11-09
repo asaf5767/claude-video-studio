@@ -9,11 +9,10 @@ from pathlib import Path
 import json,os,signal,sys,subprocess,socket,time,urllib.request,webbrowser
 BASE=Path(__file__).resolve().parent;run=BASE/'runtime';run.mkdir(exist_ok=True);state=run/'server.json'
 def write_launcher(url):
-    # A double-clicked HTML file cannot fetch the gallery's API/media routes.
-    # Keep its redirect aligned with the actual verified server, including a
-    # fallback port, while preserving the requested view or exact reference.
-    script='if(location.protocol === "file:"){location.replace('+json.dumps(url+'/')+' + location.search + location.hash);}\n'
-    (BASE/'dist/launch.js').write_text(script, encoding='utf-8')
+    # Keep the file:// redirect aligned with the actual verified server, including a fallback
+    # port (the one template lives in atomic.py, shared with serve.py).
+    from atomic import write_launch_js
+    write_launch_js(BASE/'dist',url)
 def open_browser(url):
     if '--open' in sys.argv[1:]:webbrowser.open(url+'/')
 # A busy older server can answer slowly; never mistake it for "not running" (and start a second one).

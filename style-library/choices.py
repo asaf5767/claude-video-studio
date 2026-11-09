@@ -211,19 +211,13 @@ def _validate(patch, config):
 # --- project / file access ----------------------------------------------
 
 def _project_root(project_id):
-    if not isinstance(project_id, str) or not index.TOKEN.fullmatch(project_id):
-        raise ChoicesError(404, 'choices.error.unknownProject')
     try:
-        registry = index.registry()
+        found = index.registered_project(project_id)
     except (OSError, ValueError):
         raise ChoicesError(503, 'choices.error.filesystem')
-    project = next((p for p in registry['projects'] if p.get('id') == project_id), None)
-    if project is None:
+    if found is None or not (found[1] / 'choices.json').is_file():
         raise ChoicesError(404, 'choices.error.unknownProject')
-    projects_root = (index.STUDIO / 'projects').resolve()
-    root = (index.STUDIO / 'projects' / project_id).resolve()
-    if root.parent != projects_root or not root.is_dir() or not (root / 'choices.json').is_file():
-        raise ChoicesError(404, 'choices.error.unknownProject')
+    project, root = found
     return root, project
 
 
@@ -380,4 +374,10 @@ def save(project_id, patch):
         brief_text = apply_block(_read_brief(root), block)
         _write_choices(root, merged)
         _write_brief(root, brief_text)
+    if 'look' in patch:
+        import inspiration  # local import: inspiration -> project_index -> choices
+        try:
+            inspiration.write_look(root, merged.get('look'))
+        except (OSError, inspiration.InspirationError):
+            pass  # refreshed again when Claude starts
     return merged

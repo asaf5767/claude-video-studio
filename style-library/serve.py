@@ -21,6 +21,7 @@ from looks import list as list_looks, file_path as look_file_path, LookError
 from choices import current as choices_current, save as save_choices, ChoicesError
 from effects import list as list_effects
 import claude_runner
+import server_messages
 from addons import state as addons_state, save as save_addons, AddonsError
 import inspiration
 
@@ -63,14 +64,10 @@ class Handler(SimpleHTTPRequestHandler):
             except (OSError, ValueError, TypeError, KeyError): return self.json_error(503, 'Writing context could not be saved. Your existing files and draft are preserved.')
             return self.text(json.dumps(result), 'application/json', False)
         if self.path == '/project-script':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='project-script':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('project-script',262144)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=262144:return self.send_error(413)
-                result=save_script(json.loads(self.rfile.read(size)))
+                result=save_script(json.loads(raw))
             except json.JSONDecodeError:return self.json_error(400,'Use a valid script save request.')
             except (FeedbackError,ReviewError) as error:return self.json_error(error.status,str(error))
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'The script could not be saved. Existing scripts and your draft are preserved.')
@@ -107,27 +104,19 @@ class Handler(SimpleHTTPRequestHandler):
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'Reference notes are unavailable. Existing notes and your draft are preserved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/reference-visibility':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='reference-visibility':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('reference-visibility',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                result=set_visibility(json.loads(self.rfile.read(size)))
+                result=set_visibility(json.loads(raw))
             except json.JSONDecodeError:return self.json_error(400,'Use a valid library request.')
             except (IntakeError,ReviewError) as error:return self.json_error(error.status,str(error))
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'The library could not be changed. Your references are preserved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/ui-language':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='ui-language':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('ui-language',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or set(body)!={'language'}:raise ValueError()
                 result=set_ui_language(body['language'])
             except json.JSONDecodeError:return self.json_error(400,'Use a valid language request.')
@@ -135,14 +124,10 @@ class Handler(SimpleHTTPRequestHandler):
             except OSError:return self.json_error(503,'The language setting could not be saved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/ui-motion':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='ui-motion':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('ui-motion',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or set(body)!={'motion'}:raise ValueError()
                 result=set_ui_motion(body['motion'])
             except json.JSONDecodeError:return self.json_error(400,'Use a valid motion request.')
@@ -150,14 +135,10 @@ class Handler(SimpleHTTPRequestHandler):
             except OSError:return self.json_error(503,'The motion setting could not be saved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/ui-welcome':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='ui-welcome':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('ui-welcome',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or set(body)!={'welcome_seen'}:raise ValueError()
                 result=set_welcome_seen(body['welcome_seen'])
             except json.JSONDecodeError:return self.json_error(400,'Use a valid welcome request.')
@@ -165,41 +146,29 @@ class Handler(SimpleHTTPRequestHandler):
             except OSError:return self.json_error(503,'The welcome setting could not be saved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/addons':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='addons':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('addons',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                result=save_addons(json.loads(self.rfile.read(size)))
+                result=save_addons(json.loads(raw))
             except json.JSONDecodeError:return self.json_error(400,'Use a valid add-ons request.')
             except AddonsError as error:return self.json_error(error.status,str(error))
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'Add-ons could not be saved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/new-video':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='new-video':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('new-video',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 result=create_new_video(body)
             except json.JSONDecodeError:return self.json_error(400,'newVideo.error.invalidRequest')
             except NewProjectError as error:return self.json_error(error.status,error.message_key)
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'newVideo.error.filesystem')
             return self.text(json.dumps(result),'application/json',False,201)
         if self.path == '/material-update':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='material-update':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('material-update',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or set(body)-{'project','item','tag','note','owned'} or 'project' not in body or 'item' not in body:raise ValueError()
                 patch={k:v for k,v in body.items() if k in ('tag','note','owned')}
                 result=update_material(body['project'],body['item'],patch)
@@ -209,14 +178,10 @@ class Handler(SimpleHTTPRequestHandler):
             except OSError:return self.json_error(503,'materials.error.filesystem')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/choices':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='choices':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('choices',16384)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=16384:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or 'project' not in body:raise ValueError()
                 # 'seq' is stripped (never forwarded to save_choices) rather than rejected as
                 # an unknown field, so a browser tab still holding the fix-round-1 bundle
@@ -229,14 +194,10 @@ class Handler(SimpleHTTPRequestHandler):
             except OSError:return self.json_error(503,'choices.error.filesystem')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/material-from-library':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='material-from-library':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('material-from-library',4096)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=4096:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or set(body)!={'project','item'}:raise ValueError()
                 result=add_from_library(body['project'],body['item'])
             except json.JSONDecodeError:return self.json_error(400,'materials.error.invalidRequest')
@@ -245,14 +206,10 @@ class Handler(SimpleHTTPRequestHandler):
             except OSError:return self.json_error(503,'materials.error.filesystem')
             return self.text(json.dumps(result),'application/json',False,201)
         if self.path == '/style-card':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='style-card':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('style-card',131072)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=131072:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 if not isinstance(body,dict) or set(body)!={'reference','text','pinned','revision'}:raise ValueError()
                 if body['revision'] is not None and not isinstance(body['revision'],str):raise ValueError()
                 result=inspiration.save_card(body['reference'],body['text'],body['pinned'],body['revision'])
@@ -297,27 +254,19 @@ class Handler(SimpleHTTPRequestHandler):
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'Feedback could not be changed. Existing notes and your draft are preserved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/feedback-link':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='feedback-link':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('feedback-link',1048576)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=1048576:return self.send_error(413)
-                result=save_feedback_link(json.loads(self.rfile.read(size)))
+                result=save_feedback_link(json.loads(raw))
             except json.JSONDecodeError:return self.json_error(400,'Use a valid JSON feedback selection.')
             except (FeedbackError,ReviewError) as error:return self.json_error(error.status,str(error))
             except (OSError,ValueError,TypeError,KeyError):return self.json_error(503,'The feedback link could not be prepared. Your saved notes are preserved.')
             return self.text(json.dumps(result),'application/json',False)
         if self.path == '/feedback':
-            if not self.trusted(write=True):return
-            if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:return self.send_error(400)
-            if self.headers.get('X-Studio-Action')!='feedback':return self.send_error(403)
-            if self.headers.get_content_type()!='application/json':return self.send_error(415)
+            raw=self.json_request('feedback',16384)
+            if raw is None:return
             try:
-                size=int(self.headers.get('Content-Length','0'))
-                if not 0<size<=16384:return self.send_error(413)
-                body=json.loads(self.rfile.read(size))
+                body=json.loads(raw)
                 result=save_feedback(body)
             except json.JSONDecodeError:return self.json_error(400,'Use a valid JSON feedback request.')
             except (FeedbackError,ReviewError) as error:return self.json_error(error.status,str(error))
@@ -350,13 +299,13 @@ class Handler(SimpleHTTPRequestHandler):
                 if not 0 < size <= 8192: return self.send_error(413)
                 body = json.loads(self.rfile.read(size))
             except (ValueError, TypeError):
-                return self.json_error(400, 'Use a valid JSON review request.')
+                return self.json_error(400, 'review.error.invalidJson')
             try:
                 result = apply_decision(body)
             except ReviewError as error:
-                return self.json_error(error.status, str(error))
+                return self.json_error(error.status, error.message_key or str(error))
             except (ValueError, TypeError, KeyError, OSError):
-                return self.json_error(503, 'The project metadata could not be saved. Ask your assistant to check its current files and approval journal.')
+                return self.json_error(503, 'review.error.metadataNotSaved')
             return self.text(json.dumps(result), 'application/json', False)
         if self.path != '/context': return self.send_error(404)
         origin = self.headers.get('Origin')
@@ -658,8 +607,24 @@ class Handler(SimpleHTTPRequestHandler):
         data=body.encode();self.send_response(status);self.send_header('Content-Type',content_type);self.send_header('Content-Length',len(data));self.send_header('Cache-Control','no-cache');self.end_headers()
         if not head:self.wfile.write(data)
 
+    def json_request(self, action, limit):
+        """The one write guard for the studio's JSON POST routes (final review M13a): a trusted
+        local Host/Origin, exactly one Content-Length and no Transfer-Encoding, this route's
+        X-Studio-Action, application/json, and a body of 1..limit bytes. Returns the raw body,
+        or None after answering the request itself."""
+        if not self.trusted(write=True):return None
+        if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length',[]))!=1:
+            self.send_error(400);return None
+        if self.headers.get('X-Studio-Action')!=action:self.send_error(403);return None
+        if self.headers.get_content_type()!='application/json':self.send_error(415);return None
+        try:size=int(self.headers.get('Content-Length','0'))
+        except ValueError:self.send_error(400);return None
+        if not 0<size<=limit:self.send_error(413);return None
+        return self.rfile.read(size)
+
     def json_error(self, status, message, details=None):
-        data = json.dumps({'error': message, **(details or {})}).encode()
+        # A known English sentence is answered as its i18n key (server_messages, final review I2).
+        data = json.dumps({'error': server_messages.code(message), **(details or {})}).encode()
         self.send_response(status);self.send_header('Content-Type', 'application/json');self.send_header('Content-Length', len(data));self.send_header('Cache-Control', 'no-store');self.end_headers();self.wfile.write(data)
 
     def file(self,filename,head=False,content_type=None):
@@ -709,6 +674,8 @@ def refresh_tool_path():
 
 if __name__=='__main__':
     refresh_tool_path()
+    from materials import clean_stale_uploads
+    clean_stale_uploads()  # temp files of uploads a stopped server never finished (M4)
     parser=argparse.ArgumentParser();parser.add_argument('--port',type=int,default=4870);args=parser.parse_args()
     url=f'http://127.0.0.1:{args.port}'
     # index.html requests launch.js unconditionally (it redirects a double-clicked file://
@@ -717,10 +684,9 @@ if __name__=='__main__':
     # shipped or committed -- so running this file directly (without start.py) left it
     # missing and every page load 404'd on it. Write/refresh it here too, so GET /launch.js
     # never 404s no matter how the server was started, and it always carries this run's
-    # actual port.
-    (BASE/'dist/launch.js').write_text(
-        'if(location.protocol === "file:"){location.replace('+json.dumps(url+'/')+' + location.search + location.hash);}\n',
-        encoding='utf-8')
+    # actual port. The one template (atomic.write_launch_js) is shared with start.py.
+    from atomic import write_launch_js
+    write_launch_js(BASE/'dist',url)
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
     print(json.dumps({'url':url,'app':'ai-video-studio'}),flush=True)
     server.serve_forever()

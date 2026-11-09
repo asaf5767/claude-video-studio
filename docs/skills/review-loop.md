@@ -20,7 +20,7 @@ The creator's own words in the request (anything after the folder, before `Reply
 
 ## Never overwrite an approved version
 
-Every round works in a new folder: `python scripts/new_version.py "projects/<id>"` (first round) or `python scripts/new_version.py "projects/<id>" --from v01` (refine or final, building on that version). It never reuses a folder, so the exact files the studio froze in `approval-state.json` (hashes of the approved version) stay as they are. Never write into an older `versions/vNN/`, never edit `approval-state.json`, never delete a render. Earlier work stays as history in the studio.
+Every round works in a new folder: `python "<studio>/scripts/new_version.py" "projects/<id>"` (first round) or `python "<studio>/scripts/new_version.py" "projects/<id>" --from v01` (refine or final, building on that version). It never reuses a folder, so the exact files the studio froze in `approval-state.json` (hashes of the approved version) stay as they are. Never write into an older `versions/vNN/`, never edit `approval-state.json`, never delete a render. Earlier work stays as history in the studio.
 
 ### What `--from` brings, and what you run again
 
@@ -46,7 +46,7 @@ Every round works in a new folder: `python scripts/new_version.py "projects/<id>
 | The voice-over | a new voice file in `media/` (`--copy`) | transcribe the new file, captions, the scenes' times in `scenes.json` / `index.html`, sound, render |
 | None (final round after the storyboard was approved) | — | captions, sound, render `final.mp4` |
 
-Re-running a step with the same inputs gives the same result (the cut is frame-exact and byte-identical for the same request), so an unchanged step costs time, never quality. The slow one is reused rather than redone: `python scripts/matte.py` with `--reuse-from "projects/<id>/versions/<previous>/matte"` copies the previous version's cut-out when it was made from exactly this cut (same file hash, same model) and recomputes it otherwise. A step you re-ran unchanged is marked `done` with "כמו בגרסה הקודמת" (or "same as the previous version").
+Re-running a step with the same inputs gives the same result (the cut is frame-exact and byte-identical for the same request), so an unchanged step costs time, never quality. The slow one is reused rather than redone: `python "<studio>/scripts/matte.py"` with `--reuse-from "projects/<id>/versions/<previous>/matte"` copies the previous version's cut-out when it was made from exactly this cut (same file hash, same model) and recomputes it otherwise. A step you re-ran unchanged is marked `done` with "כמו בגרסה הקודמת" (or "same as the previous version").
 
 ### Redoing a step before the version is registered
 
@@ -57,7 +57,7 @@ Re-running a step with the same inputs gives the same result (the cut is frame-e
 A storyboard is real frames of the edit, not a description: render the draft (see `docs/skills/composition.md`), then pull one JPEG still per beat — the hook, every title or effect, every scene change, the call to action — usually 6-12 frames:
 
 ```bash
-ffmpeg -nostdin -v error -n -ss 2.40 -i "projects/<id>/versions/v01/renders/draft.mp4" -frames:v 1 -vf scale=540:-2 -q:v 3 "projects/<id>/versions/v01/storyboard/03.jpg"
+python "<studio>/scripts/media.py" ffmpeg -nostdin -v error -n -ss 2.40 -i "projects/<id>/versions/v01/renders/draft.mp4" -frames:v 1 -vf scale=540:-2 -q:v 3 "projects/<id>/versions/v01/storyboard/03.jpg"
 ```
 
 Look at every still with Read before registering: captions readable and inside the frame, nothing over the eyes or mouth, no empty or black frame, Hebrew letters in the right order. Fix and re-render if not. Then write `versions/vNN/storyboard/frames.json`: `[{"path": "versions/v01/storyboard/01.jpg", "title": "<beat, 2-5 words>", "note": "<what happens: words, caption, effect, sound>"}]` in the reply language.
@@ -65,8 +65,8 @@ Look at every still with Read before registering: captions readable and inside t
 ## Register (never approves)
 
 ```bash
-python scripts/register_version.py "projects/<id>" --version V01 --kind storyboard --frames "versions/v01/storyboard/frames.json" --preview "versions/v01/renders/draft.mp4" --cut "versions/v01/cut.mp4" --summary "<one sentence>" --next-step "<what the creator does now>" --lang he
-python scripts/register_version.py "projects/<id>" --version V02 --kind final --video "versions/v02/renders/final.mp4" --poster "versions/v02/storyboard/poster.jpg" --summary "<one sentence>" --next-step "<what the creator does now>" --lang he
+python "<studio>/scripts/register_version.py" "projects/<id>" --version V01 --kind storyboard --frames "versions/v01/storyboard/frames.json" --preview "versions/v01/renders/draft.mp4" --cut "versions/v01/cut.mp4" --summary "<one sentence>" --next-step "<what the creator does now>" --lang he
+python "<studio>/scripts/register_version.py" "projects/<id>" --version V02 --kind final --video "versions/v02/renders/final.mp4" --poster "versions/v02/storyboard/poster.jpg" --summary "<one sentence>" --next-step "<what the creator does now>" --lang he
 ```
 
 `--cut` is talking-head only. A final video needs `--poster`: one JPEG frame of `final.mp4` that shows the video well (the hook frame, about 1 s in), made with the same ffmpeg still command into `versions/vNN/storyboard/poster.jpg`; the studio uses it when the creator marks the video final. `--lang` is the reply language. It keeps the studio's own record fields (the next "Send to Claude" needs `kind`), keeps every earlier version and every decision the creator saved in the studio exactly as they are (it calls `scripts/register.py project --append-version`), adds the new version and makes it current. It works the same before and after an approval, and never approves anything. If it answers:

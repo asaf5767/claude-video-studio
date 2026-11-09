@@ -117,6 +117,7 @@ a.primary{text-decoration:none;display:inline-block}
 .material-thumb-audio{display:flex;align-items:center;justify-content:center;color:var(--ember);font-size:26px}
 .material-thumb-link{display:block}
 .material-thumb-video-pending{height:92px;width:100%;display:flex;align-items:center;justify-content:center;color:var(--ember);font-size:22px;background:#1a1a20}
+.material-thumb-photo{height:92px;width:100%;display:flex;align-items:center;justify-content:center;color:var(--ember);font-size:22px;background:#1a1a20}
 .material-meta{padding:9px 11px 11px;display:flex;flex-direction:column;gap:7px}
 .material-name{display:block;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .material-tag{background:#17171c;border:1px solid #2a2a31;border-radius:6px;color:var(--gold);font-size:11.5px;padding:5px 7px;width:100%}

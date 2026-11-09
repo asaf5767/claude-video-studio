@@ -392,3 +392,19 @@ test('an empty personal library shows the translated empty message', async () =>
   const text = findAll(panel, n => n.textContent === he['materials.library.empty']);
   assert.equal(text.length, 1);
 });
+
+// --- final review I4: iPhone photos (HEIC/HEIF) ---
+
+test('an iPhone photo is tagged as an image and its tile shows the server poster, or a placeholder', async () => {
+  const items = [{id: 'p1', file: 'materials/images/IMG_0001.HEIC', tag: 'image', note: '', owned: false, size: 10, added_at: 't'}];
+  const h = harness({initialItems: items});
+  assert.equal(h.MaterialsUI.tagFor('IMG_0001.HEIC', true), 'image');
+  assert.equal(h.MaterialsUI.tagFor('x.heif', false), 'image');
+  const el = h.mountEl();
+  h.MaterialsUI.mount(el, 'demo');
+  await flush();
+  const img = find(el, n => n.tagName === 'IMG' && n._classes && n._classes.has('material-thumb'));
+  assert.equal(img.src, '/project-materials/demo/p1?poster=1');
+  img.dispatch('error', {});
+  assert.ok(find(el, hasClass('material-thumb-photo')), 'a placeholder replaces a poster that could not be made');
+});

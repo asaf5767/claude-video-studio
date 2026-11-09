@@ -53,7 +53,8 @@ class ReviewTests(unittest.TestCase):
         self.save()
         self.patches = [patch.object(index, 'STUDIO', self.root), patch.object(index, 'REGISTRY', self.registry),
                         patch.object(reviews, 'BASE', self.base), patch.object(reviews, 'CATALOG', self.catalog),
-                        patch.object(reviews, 'JOURNALS', self.base / 'runtime/review-actions')]
+                        patch.object(reviews, 'JOURNALS', self.base / 'runtime/review-actions'),
+                        patch.object(library, 'BASE', self.base)]  # the UI language (no settings: Hebrew)
         for p in self.patches: p.start()
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), QuietHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -82,7 +83,7 @@ class ReviewTests(unittest.TestCase):
         self.assertFalse(p['stale'])
         self.assertEqual(p['review']['action'], 'reopen')
         status = (self.project / 'STATUS.md').read_text(encoding='utf-8')
-        self.assertIn('Final approved: Latest review V02', status)
+        self.assertIn('אושר כסופי: Latest review V02', status)
         self.assertIn('Review V02; V01 accepted.', status)
         events = json.loads((self.project / 'approval-state.json').read_text(encoding='utf-8'))['events']
         self.assertEqual(events[0]['version'], 'V02')
@@ -145,7 +146,7 @@ class ReviewTests(unittest.TestCase):
         self.assertFalse(p['stale'])
         self.assertEqual(len(json.loads((self.project / 'approval-state.json').read_text(encoding='utf-8'))['events']), 2)
         self.assertEqual(json.loads(self.catalog.read_text(encoding='utf-8'))['entries'][0]['delivery_status'], 'final')
-        self.assertIn('Reopened for changes', (self.project / 'STATUS.md').read_text(encoding='utf-8'))
+        self.assertIn('נפתח מחדש לשינויים', (self.project / 'STATUS.md').read_text(encoding='utf-8'))
 
     def test_milestones_advance_only_their_stage_and_do_not_register_a_final(self):
         for kind, expected in [('spoken_cut', 'storyboard'), ('storyboard', 'edit')]:
@@ -327,6 +328,82 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(request(valid, '{broken json')[0], 400)
         self.assertEqual(request(valid)[0], 200)
         self.assertEqual(request(valid)[0], 200)  # Same request is idempotent.
+
+
+    # --- final review I2: decision text in the UI language, errors as i18n keys ---
+
+    def decide_all(self):
+        """Approve a spoken cut, then a storyboard, then the final; reopen. The UI-visible text after each."""
+        seen = []
+        for kind in ('spoken_cut', 'storyboard', 'final'):
+            self.p = json.loads(self.registry.read_text(encoding='utf-8'))['projects'][0]
+            self.p['artifacts'][0]['approval_kind'] = kind
+            self.p.pop('review_decision', None)
+            self.p['state'] = 'review'
+            self.save()
+            p = reviews.apply_decision(self.body())['projects'][0]
+            seen.append((kind, p))
+        p = reviews.apply_decision(self.body('reopen'))['projects'][0]
+        seen.append(('reopen', p))
+        return seen
+
+    def visible(self, p):
+        record = next(r for r in json.loads(self.registry.read_text(encoding='utf-8'))['projects'] if r['id'] == 'demo')
+        return [record.get(key, '') for key in ('summary', 'next_step', 'baseline')]
+
+    def test_decision_text_is_hebrew_and_points_at_send_to_claude(self):
+        for kind, p in self.decide_all():
+            texts = [t.replace('Latest review V02', '') for t in self.visible(p) if t]
+            with self.subTest(kind=kind):
+                self.assertTrue(texts)
+                for text in texts:
+                    self.assertNotRegex(text, r'[A-Za-z]{3,}', 'no Latin prose in a Hebrew UI')
+                    self.assertRegex(text, r'[֐-׿]')
+                joined = ' '.join(texts)
+                self.assertNotIn('צ׳אט', joined)
+                if kind != 'final':
+                    self.assertIn('שליחה לקלוד', joined)
+        notes = (self.project / 'review-notes.md').read_text(encoding='utf-8')
+        self.assertIn('שליחה לקלוד', notes)
+        self.assertNotIn('editing chat', notes + (self.project / 'STATUS.md').read_text(encoding='utf-8'))
+
+    def test_decision_text_follows_an_english_ui(self):
+        (self.base / 'settings.json').write_text(json.dumps({'language': 'en'}), encoding='utf-8')
+        for kind, p in self.decide_all():
+            joined = ' '.join(self.visible(p))
+            with self.subTest(kind=kind):
+                self.assertNotRegex(joined, r'[֐-׿]')
+                self.assertNotIn('editing chat', joined)
+                if kind != 'final':
+                    self.assertIn('Send to Claude', joined)
+
+    def test_every_review_error_has_an_i18n_key_in_both_languages(self):
+        import re as _re
+        source = Path(reviews.__file__).read_text(encoding='utf-8')
+        raised = set(_re.findall(r"ReviewError\('([^']*)'", source))
+        self.assertEqual(raised, set(reviews.MESSAGE_KEYS))
+        dist = Path(reviews.__file__).resolve().parent / 'dist' / 'i18n'
+        for lang in ('he', 'en'):
+            strings = json.loads((dist / f'{lang}.json').read_text(encoding='utf-8'))
+            for key in list(reviews.MESSAGE_KEYS.values()) + ['review.error.invalidJson', 'review.error.metadataNotSaved']:
+                self.assertIn(key, strings, lang)
+            if lang == 'he':
+                self.assertFalse([k for k, v in strings.items() if k.startswith('review.error.') and _re.search(r'[A-Za-z]{3,}', v)])
+        self.assertEqual(reviews.ReviewError('Invalid review action.').message_key, 'review.error.invalidAction')
+        self.assertIsNone(reviews.ReviewError('Some other module text.').message_key)
+
+    def test_review_action_route_answers_with_keys(self):
+        body = json.dumps(self.body())
+        valid = {'Origin': self.origin, 'X-Studio-Action': 'review', 'Content-Type': 'application/json'}
+        def request(value):
+            c = http.client.HTTPConnection('127.0.0.1', self.server.server_port)
+            c.request('POST', '/review-action', body=value, headers=valid)
+            r = c.getresponse(); result = (r.status, json.loads(r.read() or b'null')); c.close(); return result
+        self.assertEqual(request('{broken json'), (400, {'error': 'review.error.invalidJson'}))
+        self.assertEqual(request(json.dumps({'x': 1})), (400, {'error': 'review.error.chooseCheckpoint'}))
+        self.assertEqual(request(body)[0], 200)
+        reused = json.loads(body); reused['action'] = 'reopen'
+        self.assertEqual(request(json.dumps(reused))[1], {'error': 'review.error.requestUsed'})
 
 
 if __name__ == '__main__': unittest.main()

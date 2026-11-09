@@ -45,7 +45,7 @@ window.ReferenceIntake=(()=>{
   Object.values(fields).forEach(field=>field.disabled=true);
   try{
    const response=await fetch('/reference-state?id='+encodeURIComponent(id)),data=await reply(response,I18N.t('dialog.reference.loadFailed'));
-   if(token!==opening||!dialog.open)return;if(!response.ok)throw Error(data.error||I18N.t('dialog.reference.loadFailedShort'));
+   if(token!==opening||!dialog.open)return;if(!response.ok)throw Error((data.error&&I18N.server(data.error))||I18N.t('dialog.reference.loadFailedShort'));
    revision=data.revision;for(const key of Object.keys(fields)){fields[key].value=data[key]||'';fields[key].disabled=false;}
    if(data.creator==='Creator not added')fields.creator.value='';$('#reference-save').disabled=false;fields.title.focus();
   }catch(error){if(token===opening&&dialog.open)$('#reference-error').textContent=error instanceof TypeError?I18N.t('dialog.reference.networkError'):error.message;}

@@ -1,5 +1,7 @@
-/* Task 21: the optional "add-ons" dialog (voice: ElevenLabs; image: OpenAI Images or
-   Azure AI Foundry). Off by default, never required -- enabling one means paying its
+/* Task 21: the optional "add-ons" dialog (voice: ElevenLabs; image: OpenAI Images). Azure AI
+   Foundry stays a command-line option (scripts/addons_image.py) but is hidden here (RULING R50:
+   its endpoint can only be set in .env, so the dialog could show "connected" for a provider
+   that cannot run); a Foundry choice made outside the dialog is kept as is. Off by default, never required -- enabling one means paying its
    provider on the user's own account, not the studio. Loads/saves through GET/POST
    /addons (serve.py / addons.py, the same trusted-write pattern as /ui-language and
    /ui-motion), which never echoes a saved API key back out of the browser -- only
@@ -28,7 +30,8 @@ window.Addons=(()=>{
   field.voice.key.value='';
   setStatus('voice',data.voice);
   field.image.enabled.checked=data.image.enabled;
-  if(data.image.provider)field.image.provider.value=data.image.provider;
+  field.image.saved=data.image.provider;
+  if(data.image.provider==='openai-images')field.image.provider.value='openai-images';
   field.image.key.value='';
   setStatus('image',data.image);
  }
@@ -37,7 +40,9 @@ window.Addons=(()=>{
  // key is layered on separately by the caller, never read from here.
  function currentPatch(kind){
   const f=field[kind],enabled=f.enabled.checked;
-  return {enabled,provider:enabled?(kind==='voice'?'elevenlabs':f.provider.value):null};
+  if(!enabled)return {enabled,provider:null};
+  if(kind==='voice')return {enabled,provider:'elevenlabs'};
+  return {enabled,provider:f.saved==='foundry'?'foundry':(f.provider.value||'openai-images')};
  }
 
  function setBusy(next){

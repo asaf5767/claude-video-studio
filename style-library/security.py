@@ -3,6 +3,8 @@ from pathlib import Path
 import re
 
 TOKEN = re.compile(r'^[a-z0-9][a-z0-9-]*$')
+# Windows device names no file or folder may take (compare upper-cased; final review M13c).
+RESERVED_NAMES = {'CON', 'PRN', 'AUX', 'NUL'} | {f'COM{d}' for d in '123456789'} | {f'LPT{d}' for d in '123456789'}
 MEDIA = {'.mp4', '.mov', '.webm', '.m4v', '.png', '.jpg', '.jpeg', '.webp', '.gif'}
 AUDIO = {'.mp3', '.wav', '.m4a', '.aac'}
 NOTES = {'.md', '.txt', '.json', '.csv', '.srt', '.vtt'}

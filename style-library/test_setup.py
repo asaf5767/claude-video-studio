@@ -102,6 +102,8 @@ class SetupTests(unittest.TestCase):
             before={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
             with patch.object(setup,'ROOT',root),patch.object(sys,'argv',['setup','--studio-only']),patch.object(setup,'capability_report',return_value={}),patch.object(setup,'run',side_effect=AssertionError('Studio-only must not install media')),contextlib.redirect_stdout(io.StringIO()):
                 setup.main()
+            # R51: setup records the integrity baseline (runtime state under logs/); nothing else changes.
+            self.assertTrue((root/'logs'/'integrity.json').is_file());(root/'logs'/'integrity.json').unlink()
             self.assertEqual(before,{str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()})
     def test_setup_creates_only_missing_registries(self):
         with tempfile.TemporaryDirectory() as folder:

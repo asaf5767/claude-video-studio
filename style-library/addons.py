@@ -237,7 +237,10 @@ def save(body):
         if key is not None:
             key_patch[kind] = key
     with library._SETTINGS_LOCK:
-        settings = _read_settings()
+        try:
+            settings = library.settings_for_update()  # a corrupt file is moved aside, not lost (M12)
+        except OSError:
+            raise AddonsError(503, 'Add-ons could not be saved.')
         addons = settings.get('addons') if isinstance(settings.get('addons'), dict) else {}
         for kind, patch in settings_patch.items():
             addons[kind] = patch

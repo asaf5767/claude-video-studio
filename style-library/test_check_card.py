@@ -2,6 +2,7 @@
 wrote: every card key present on one line, and every row the creator pinned unchanged."""
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -72,6 +73,17 @@ class CheckCardTests(unittest.TestCase):
                              capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(bad.returncode, 1)
         self.assertEqual(json.loads(bad.stdout)['missing'], ['avoid'])
+
+    def test_hebrew_output_survives_a_legacy_code_page(self):
+        # Final review M5: a pipe in the Windows ANSI code page (cp1252/cp1255) must not crash
+        # a helper that prints Hebrew JSON; helpers write UTF-8 whatever the console says.
+        self.write(card())
+        (self.folder / 'style-card.json').write_text(json.dumps({'pinned': {'כותרת': 'גדולה'}}), encoding='utf-8')
+        env = {**os.environ, 'PYTHONIOENCODING': 'cp1252', 'PYTHONUTF8': '0'}
+        run = subprocess.run([sys.executable, str(REPO_ROOT / 'scripts/check_card.py'), str(self.folder)],
+                             capture_output=True, env=env)
+        self.assertNotIn(b'UnicodeEncodeError', run.stderr)
+        self.assertEqual(json.loads(run.stdout.decode('utf-8'))['changed_pins'], ['כותרת'])
 
 
 if __name__ == '__main__':

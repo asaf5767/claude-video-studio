@@ -28,6 +28,7 @@ import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import new_version  # noqa: E402
 
 HEBREW = re.compile('[א-ת]')
@@ -143,6 +144,8 @@ def build(words, lang='he', mode='line', max_chars=MAX_CHARS, lines=1, duration=
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('words', type=Path)
     parser.add_argument('out', type=Path)
@@ -154,6 +157,8 @@ def main(argv=None):
     parser.add_argument('--retry', action='store_true',
                         help='replace <out.json> (only while nothing from its version is registered)')
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.words) or jobscope.refuse(args.out, write=True)) is not None:
+        return code
     if not 1 <= args.max_chars <= MAX_CHARS:
         print(f'captions.bad-request: --max-chars must be between 1 and {MAX_CHARS} (a caption line is at most '
               f'{MAX_CHARS} characters; lower values are fine)', file=sys.stderr)

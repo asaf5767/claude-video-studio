@@ -90,6 +90,14 @@ class ProgressTests(unittest.TestCase):
         progress.update(self.file, 'matte', 'running', '10%')
         self.assertEqual([s['key'] for s in self.read()][2:5], ['cut', 'matte', 'captions'])
 
+    def test_a_missing_step_follows_the_file_s_own_skill(self):
+        # Final review M16: `transcribe` exists in both editing skills; in a faceless file it
+        # belongs after `voice`, not in talking-head's place.
+        progress.start(self.file, 'faceless-reel')
+        self.file.write_text(json.dumps([s for s in self.read() if s['key'] != 'transcribe']), encoding='utf-8')
+        progress.update(self.file, 'transcribe', 'running')
+        self.assertEqual([s['key'] for s in self.read()], progress.STEPS['faceless-reel'])
+
     def test_missing_or_corrupt_file_is_rebuilt(self):
         self.file.write_text('{not json', encoding='utf-8')
         progress.update(self.file, 'card', 'running')

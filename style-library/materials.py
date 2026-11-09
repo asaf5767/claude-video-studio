@@ -19,7 +19,7 @@ from pathlib import Path
 import project_index as index
 import posters
 from atomic import atomic_write
-from security import MEDIA, AUDIO
+from security import MEDIA, AUDIO, RESERVED_NAMES
 
 CHUNK = 1024 * 1024  # 1 MiB
 MAX_UPLOAD = 8 * 1024 * 1024 * 1024  # 8 GiB
@@ -35,17 +35,20 @@ TAGS = ('raw', 'broll', 'screen', 'image', 'logo', 'music', 'voice', 'sfx')
 FOLDER_BY_TAG = {'raw': 'raw', 'broll': 'broll', 'screen': 'broll',
                   'image': 'images', 'logo': 'images', 'music': 'audio', 'voice': 'audio',
                   'sfx': 'audio'}
-# Matches security.MEDIA exactly, split by kind so auto-tagging can tell video from image.
+# security.MEDIA split by kind so auto-tagging can tell video from image, plus iPhone photos
+# (HEIC/HEIF, the iPhone default; final review I4): accepted here as materials only --
+# scripts/prepare_media.py turns them into jpg for the edit, and the tile shows an ffmpeg poster.
 VIDEO_EXT = {'.mp4', '.mov', '.webm', '.m4v'}
-IMAGE_EXT = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
-ALLOWED_EXT = MEDIA | AUDIO
+PHOTO_EXT = {'.heic', '.heif'}
+IMAGE_EXT = {'.png', '.jpg', '.jpeg', '.webp', '.gif'} | PHOTO_EXT
+ALLOWED_EXT = MEDIA | AUDIO | PHOTO_EXT
 # Task 9: content type for serving a material's bytes back (GET /project-materials/...).
 MIME_BY_EXT = {'.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.m4v': 'video/x-m4v',
                '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif',
+               '.heic': 'image/heic', '.heif': 'image/heif',
                '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.aac': 'audio/aac'}
 
 WINDOWS_RESERVED_CHARS = set('<>:"/\\|?*')
-RESERVED_NAMES = {'CON', 'PRN', 'AUX', 'NUL'} | {f'COM{d}' for d in '123456789'} | {f'LPT{d}' for d in '123456789'}
 
 TEMPLATES = Path(__file__).resolve().parents[1] / 'templates'
 LEDGER_FIELDS = ['asset_id', 'file', 'role', 'spoken_beat', 'provenance', 'creator_or_vendor',
@@ -109,19 +112,13 @@ def _project_root(project_id):
     shape Task 7 creates -- registration alone isn't enough (fix round 1, finding 5): a
     stray directory that merely happens to have a materials.json must not be reachable
     just because its name matches a TOKEN."""
-    if not isinstance(project_id, str) or not index.TOKEN.fullmatch(project_id):
-        raise MaterialsError(404, 'materials.error.unknownProject')
     try:
-        registered = any(p.get('id') == project_id for p in index.registry()['projects'])
+        found = index.registered_project(project_id)
     except (OSError, ValueError):
         raise MaterialsError(503, 'materials.error.filesystem')
-    if not registered:
+    if found is None or not (found[1] / 'materials.json').is_file():
         raise MaterialsError(404, 'materials.error.unknownProject')
-    projects_root = (index.STUDIO / 'projects').resolve()
-    root = (index.STUDIO / 'projects' / project_id).resolve()
-    if root.parent != projects_root or not root.is_dir() or not (root / 'materials.json').is_file():
-        raise MaterialsError(404, 'materials.error.unknownProject')
-    return root
+    return found[1]
 
 
 def _manifest_path(project_root):
@@ -145,19 +142,20 @@ def _write_manifest(project_root, manifest):
         raise MaterialsError(503, 'materials.error.filesystem')
 
 
-def stream_to_file(stream, length, dest, limit):
-    """Stream exactly `length` bytes from `stream` into `dest` in 1 MiB chunks, writing to
-    a temp file in the same folder first so a failed upload never leaves a partial file
-    under the final name (same discipline as atomic.atomic_write, sized for large media
-    instead of buffering it all in memory). Raises MaterialsError(413) if `length` exceeds
-    `limit` before any byte is read. Raises MaterialsError(400) -- never replacing the
-    final name, and always clearing the temp file -- if the stream ends early (a
+def receive(stream, length, folder, limit):
+    """Stream exactly `length` bytes from `stream` into a new temp file in `folder` (1 MiB
+    chunks, fsynced) and return its path; the caller moves it into place. Raises
+    MaterialsError(413) if `length` exceeds `limit` before any byte is read, and
+    MaterialsError(400) -- always clearing the temp file -- if the stream ends early (a
     disconnect or short body) and fewer than `length` bytes actually arrive (fix round 1,
-    finding 1). Returns the number of bytes actually written."""
+    finding 1)."""
     if not isinstance(length, int) or length < 0 or length > limit:
         raise MaterialsError(413, 'materials.error.tooLarge')
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp = tempfile.mkstemp(prefix='.studio-upload-', dir=dest.parent)
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        fd, temp = tempfile.mkstemp(prefix='.studio-upload-', dir=folder)
+    except OSError:
+        raise MaterialsError(503, 'materials.error.filesystem')
     written = 0
     try:
         with os.fdopen(fd, 'wb') as out:
@@ -173,16 +171,53 @@ def stream_to_file(stream, length, dest, limit):
             os.fsync(out.fileno())
         if written != length:
             raise MaterialsError(400, 'materials.error.incomplete')
+        return Path(temp)
+    except BaseException as error:
+        if os.path.exists(temp):
+            os.unlink(temp)
+        if isinstance(error, OSError):
+            raise MaterialsError(503, 'materials.error.filesystem') from None
+        raise
+
+
+def stream_to_file(stream, length, dest, limit):
+    """Stream exactly `length` bytes into `dest`, writing to a temp file in the same folder
+    first so a failed upload never leaves a partial file under the final name (same
+    discipline as atomic.atomic_write, sized for large media instead of buffering it all in
+    memory). Errors as receive(). Returns the number of bytes written."""
+    temp = receive(stream, length, dest.parent, limit)
+    try:
         os.replace(temp, dest)
     except OSError:
         raise MaterialsError(503, 'materials.error.filesystem')
     finally:
-        if os.path.exists(temp):
-            os.unlink(temp)
-    return written
+        if temp.exists():
+            temp.unlink()
+    return length
+
+
+def clean_stale_uploads(studio=None):
+    """Remove upload temp files left by a server that stopped mid-upload (final review M4).
+    Called once when the server starts, before any upload can be in flight. Returns the count."""
+    studio = Path(studio) if studio is not None else index.STUDIO
+    removed = 0
+    for pattern in ('projects/*/materials/.studio-upload-*', 'projects/*/materials/*/.studio-upload-*',
+                    'references/*/.studio-upload-*', 'references/*/.incoming-*'):
+        for path in studio.glob(pattern):
+            try:
+                if path.is_file():
+                    path.unlink()
+                    removed += 1
+            except OSError:
+                pass
+    return removed
 
 
 def save_upload(project_id, filename, stream, length):
+    """Final review M4: the bytes stream into a temp file under the project's materials/
+    folder OUTSIDE the global MANIFEST_LOCK (an 8 GiB drop must not block every other
+    project's listing, serving and posters); the lock is held only to pick the tag and the
+    unique name, move the file into place and append to the manifest."""
     project_root = _project_root(project_id)
     safe_name = sanitize_filename(filename)
     ext = Path(safe_name).suffix.lower()
@@ -192,20 +227,31 @@ def save_upload(project_id, filename, stream, length):
         raise MaterialsError(400, 'materials.error.invalidRequest')
     if length > MAX_UPLOAD:
         raise MaterialsError(413, 'materials.error.tooLarge')
-    with MANIFEST_LOCK:
-        manifest = _read_manifest(project_root)
-        tag = _auto_tag(ext, manifest['items'])
-        folder = FOLDER_BY_TAG[tag]
-        dest_dir = project_root / 'materials' / folder
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_name = _unique_name(dest_dir, safe_name)
-        dest = dest_dir / dest_name
-        size = stream_to_file(stream, length, dest, MAX_UPLOAD)
-        item = {'id': uuid.uuid4().hex[:12], 'file': f'materials/{folder}/{dest_name}',
-                'tag': tag, 'note': '', 'owned': False, 'size': size,
-                'added_at': datetime.now(timezone.utc).isoformat()}
-        manifest['items'].append(item)
-        _write_manifest(project_root, manifest)
+    temp = receive(stream, length, project_root / 'materials', MAX_UPLOAD)
+    try:
+        with MANIFEST_LOCK:
+            manifest = _read_manifest(project_root)
+            tag = _auto_tag(ext, manifest['items'])
+            folder = FOLDER_BY_TAG[tag]
+            dest_dir = project_root / 'materials' / folder
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_name = _unique_name(dest_dir, safe_name)
+            dest = dest_dir / dest_name
+            os.replace(temp, dest)
+            item = {'id': uuid.uuid4().hex[:12], 'file': f'materials/{folder}/{dest_name}',
+                    'tag': tag, 'note': '', 'owned': False, 'size': length,
+                    'added_at': datetime.now(timezone.utc).isoformat()}
+            manifest['items'].append(item)
+            try:
+                _write_manifest(project_root, manifest)
+            except BaseException:
+                dest.unlink(missing_ok=True)  # never leave a file the manifest does not list
+                raise
+    except OSError:
+        raise MaterialsError(503, 'materials.error.filesystem')
+    finally:
+        if temp.exists():
+            temp.unlink()
     return item
 
 
@@ -431,7 +477,7 @@ def poster_path(project_id, item_id):
     Returns None, not an error, when ffmpeg could not produce a poster within its time
     budget: the route then answers 404 and the UI falls back to its placeholder icon."""
     target, _ = file_path(project_id, item_id)
-    if target.suffix.lower() not in VIDEO_EXT:
+    if target.suffix.lower() not in VIDEO_EXT | PHOTO_EXT:
         raise MaterialsError(404, 'materials.error.unknownItem')
     project_root = _project_root(project_id)
     cache_dir = project_root / 'materials' / '.posters'

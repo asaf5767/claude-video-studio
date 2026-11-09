@@ -33,6 +33,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import tools  # noqa: E402
 import new_version  # noqa: E402
 
@@ -96,6 +97,11 @@ def validate(request):
         value = request.get(key, default)
         if not isinstance(value, int) or value <= 0 or (key != 'fps' and value % 2):
             raise CutError('cut.bad-request', f'{key} must be a positive (even) integer')
+
+
+# The same request gives the same bytes (no encoder/version tag, no copied metadata), so
+# matte.py's input_sha256 reuse survives a re-cut (final review M8).
+BITEXACT = ['-fflags', '+bitexact', '-map_metadata', '-1']
 
 
 def _run(args):
@@ -172,12 +178,12 @@ def render(project, request, out_dir, retry=False):
             args += ['-map', '0:v:0', '-map', '0:a:0' if part['has_audio'] else '1:a:0',
                      '-vf', f'fps={fps},{frame},setsar=1,format=yuv420p,{BT709}', '-frames:v', str(part['frames']),
                      '-af', audio, '-t', f'{seconds:.6f}', '-c:v', 'libx264', '-preset', 'fast', '-crf', '16',
-                     '-pix_fmt', 'yuv420p', '-c:a', 'pcm_s16le', work / f'{i:04}.mov']
+                     '-pix_fmt', 'yuv420p', '-c:a', 'pcm_s16le', *BITEXACT, work / f'{i:04}.mov']
             _run(args)
         (work / 'list.txt').write_text(''.join(f"file '{i:04}.mov'\n" for i in range(len(plan))), encoding='utf-8')
         _run([ffmpeg, '-nostdin', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', work / 'list.txt',
               '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart',
-              work / 'cut.mp4'])
+              *BITEXACT, work / 'cut.mp4'])
         moved, rows, position = [], [], 0
         for part in plan:
             start, frames = part['in_frame'] / fps, part['frames']
@@ -209,6 +215,8 @@ def render(project, request, out_dir, retry=False):
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('project', type=Path)
     parser.add_argument('request', type=Path)
@@ -216,6 +224,8 @@ def main(argv=None):
     parser.add_argument('--retry', action='store_true',
                         help='replace this version\'s cut (only while nothing from the version is registered)')
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.project, args.request, args.out_dir)) is not None:
+        return code
     try:
         request = json.loads(args.request.read_text(encoding='utf-8'))
         result = render(args.project, request, args.out_dir, retry=args.retry)

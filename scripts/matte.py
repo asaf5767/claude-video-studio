@@ -50,6 +50,7 @@ import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 import tools  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -470,6 +471,8 @@ class ProgressFile:
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('video', type=Path)
     parser.add_argument('out_dir', type=Path)
@@ -482,6 +485,9 @@ def main(argv=None):
     parser.add_argument('--step', default='matte', help='step key inside the progress file')
     parser.add_argument('--lang', default='he', choices=sorted(STAGE_TEXT), help='language of the progress text')
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.video, args.out_dir, args.reuse_from)
+            or jobscope.refuse(args.progress, write=True)) is not None:
+        return code
     progress = ProgressFile(args.progress or args.out_dir / 'progress.json', args.step, args.lang)
     try:
         result = matte(args.video, args.out_dir, args.backend, fps=args.fps, force=args.force,

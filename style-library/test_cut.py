@@ -126,6 +126,14 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(plan['style'], 'tight')
         self.assertGreaterEqual(len(plan['intervals']), 4)
 
+    def test_the_same_request_gives_the_same_bytes(self):
+        # Final review M8: a re-cut is byte-identical, so the cut-out (matte) can be reused.
+        first, second = self.project / 'versions/v01', self.project / 'versions/v02'
+        cut.render(self.project, self.request, first)
+        cut.render(self.project, self.request, second)
+        self.assertEqual((first / 'cut.mp4').read_bytes(), (second / 'cut.mp4').read_bytes())
+        self.assertNotIn(b'Lavf', (first / 'cut.mp4').read_bytes())
+
     def test_render_refuses_to_overwrite(self):
         out = self.project / 'versions/v01'
         cut.render(self.project, self.request, out)

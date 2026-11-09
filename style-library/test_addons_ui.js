@@ -108,7 +108,7 @@ test('submitting sends one POST with both add-ons; a typed key is included, an e
   h.nodes['#addons-voice-enabled'].checked = true;
   h.nodes['#addons-voice-key'].value = 'sk-voice-secret';
   h.nodes['#addons-image-enabled'].checked = true;
-  h.nodes['#addons-image-provider'].value = 'foundry';
+  h.nodes['#addons-image-provider'].value = 'openai-images';
   await h.submit();
   const post = h.requests.find(r => r.init.method === 'POST');
   assert.equal(post.url, '/addons');
@@ -116,8 +116,19 @@ test('submitting sends one POST with both add-ons; a typed key is included, an e
   assert.equal(post.init.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(post.init.body), {
     voice: {enabled: true, provider: 'elevenlabs', key: 'sk-voice-secret'},
-    image: {enabled: true, provider: 'foundry'},
+    image: {enabled: true, provider: 'openai-images'},
   });
+});
+
+test('RULING R50: Foundry is not offered in the dialog, but a Foundry choice made elsewhere is kept', async () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, 'dist/index.html'), 'utf8');
+  assert.doesNotMatch(html, /value="foundry"/);
+  const h = harness({state: {voice: {enabled: false, provider: null, has_key: false},
+    image: {enabled: true, provider: 'foundry', has_key: true}}});
+  await h.openDialog();
+  await h.submit();
+  const post = h.requests.find(r => r.init.method === 'POST');
+  assert.deepEqual(JSON.parse(post.init.body).image, {enabled: true, provider: 'foundry'});
 });
 
 test('a successful save applies the returned state and closes the dialog', async () => {

@@ -54,6 +54,7 @@ class StartScriptTests(unittest.TestCase):
         (self.base.parent / 'scripts').mkdir()
         shutil.copy2(HERE.parent / 'scripts/setup_messages.py', self.base.parent / 'scripts/setup_messages.py')
         shutil.copy2(HERE / 'start.py', self.base / 'start.py')
+        shutil.copy2(HERE / 'atomic.py', self.base / 'atomic.py')  # the shared launch.js writer
         (self.base / 'serve.py').write_text(FAKE_SERVE, encoding='utf-8')
         (self.base / 'opened.py').write_text(OPENED, encoding='utf-8')
         self.pids = []
@@ -138,6 +139,18 @@ class ServeStartupTests(unittest.TestCase):
         source = (HERE / 'serve.py').read_text(encoding='utf-8')
         self.assertIn("if __name__=='__main__':\n    refresh_tool_path()", source)
         self.assertIn("'pid':os.getpid()", source)
+
+    def test_one_launch_js_template_for_start_and_serve(self):
+        # Controller queue Q2: start.py and serve.py both write dist/launch.js through atomic.py.
+        import atomic
+        for name in ('start.py', 'serve.py'):
+            source = (HERE / name).read_text(encoding='utf-8')
+            self.assertIn('write_launch_js(BASE/', source, name)
+            self.assertNotIn('location.replace', source, name)
+        with tempfile.TemporaryDirectory() as folder:
+            atomic.write_launch_js(Path(folder), 'http://127.0.0.1:4871')
+            self.assertEqual((Path(folder) / 'launch.js').read_text(encoding='utf-8'),
+                             'if(location.protocol === "file:"){location.replace("http://127.0.0.1:4871/" + location.search + location.hash);}\n')
 
 
 if __name__ == '__main__':

@@ -131,6 +131,30 @@ class ReleaseTests(unittest.TestCase):
         (self.root/'README.md').write_text('sk-'+'x'*30, encoding='utf-8')
         self.select('README.md\n')
         with self.assertRaisesRegex(ValueError,'Credential candidate'):export.sources()
+    def test_profile_paths_in_every_spelling_stop_export(self):
+        # Final review I5: no shipped file may carry a user-profile path. Built from parts,
+        # since this test file ships too and its own text must not hold such a path.
+        for sep, head, folder in [('/', '', 'Users'), ('\\', 'C:', 'Users'), ('/', 'C:', 'Users'), ('/', '/c', 'Users'),
+                                  ('\\\\', 'C:', 'Users'), ('/', '', 'home')]:
+            text = sep.join([head, folder, 'bob', 'x'])
+            (self.root/'README.md').write_text('see '+text, encoding='utf-8')
+            self.select('README.md\n')
+            with self.subTest(text=text),self.assertRaisesRegex(ValueError,'Personal absolute path'):export.sources()
+        for text in ['~/x', '/Users/<name>/', '%USERPROFILE%\\.claude', '/usr/bin/env']:
+            (self.root/'README.md').write_text('see '+text, encoding='utf-8')
+            self.select('README.md\n')
+            with self.subTest(text=text):self.assertEqual(len(export.sources()),1)
+    def test_the_owner_account_name_stops_export(self):
+        # The real name is only a hash in export_release.py; plant a stand-in name's hash.
+        import hashlib
+        with patch.object(export,'PRIVATE_NAME_SHA256',{hashlib.sha256(b'someowner').hexdigest()}):
+            for text in ['by SomeOwner', 'path someowner-wt/x', 'clone of someowner']:
+                (self.root/'README.md').write_text(text, encoding='utf-8')
+                self.select('README.md\n')
+                with self.subTest(text=text),self.assertRaisesRegex(ValueError,'account name'):export.sources()
+            (self.root/'README.md').write_text('someowners are fine', encoding='utf-8')
+            self.assertEqual(len(export.sources()),1)
+        self.assertEqual(len(export.PRIVATE_NAME_SHA256),1)
     def test_cleared_look_sample_jpgs_export(self):
         for name in export.CLEARED_BINARIES:
             path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'\xff\xd8\xff\xe0fakejpeg')

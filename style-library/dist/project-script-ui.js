@@ -3,7 +3,7 @@ window.ProjectScript=(()=>{
  const drafts=new Map(),key='ai-video-studio-script-drafts-v1',feedbackDrafts=new Map(),feedbackKey='ai-video-studio-script-feedback-v1';let current=null,run=0;
  try{for(const [id,value] of Object.entries(JSON.parse(sessionStorage.getItem(feedbackKey)||'{}')))if(value&&typeof value.feedback==='string'&&value.feedback.length<=10000&&typeof value.references==='string'&&value.references.length<=10000)feedbackDrafts.set(id,value);}catch{}
  try{for(const [id,value] of Object.entries(JSON.parse(sessionStorage.getItem(key)||'{}')))if(value&&typeof value.text==='string'&&value.text.length<=50000)drafts.set(id,value);}catch{}
- const requestReply=async response=>{const value=await response.json();if(!response.ok){const error=Error(value.error||'Your script could not load.');error.status=response.status;throw error;}return value;};
+ const requestReply=async response=>{const value=await response.json();if(!response.ok){const error=Error((value.error&&typeof I18N!=='undefined'?I18N.server(value.error):value.error)||'Your script could not load.');error.status=response.status;throw error;}return value;};
  const get=url=>fetch(url,{cache:'no-store'}).then(requestReply);
  function persist(){try{sessionStorage.setItem(key,JSON.stringify(Object.fromEntries(drafts)));}catch{}}
  function retain(){

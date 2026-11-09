@@ -1,6 +1,6 @@
 """Read-only registry helpers shared by the gallery server and future editing agents."""
 from pathlib import Path
-import json, sys, re, hashlib, threading
+import json, os, sys, re, hashlib, threading, time, uuid
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from security import registered_file, MEDIA, NOTES
 from atomic import atomic_write
@@ -64,16 +64,33 @@ def ui_language():
         return settings['language']
     return 'he'
 
+def settings_for_update():
+    """settings.json for a read-modify-write (call under _SETTINGS_LOCK). A file that exists but
+    is not a JSON object (a hand-edit typo) is moved aside as settings.corrupt-<time>-<id>.json
+    first, like claude_runner's jobs.json, so the next write never silently drops the other
+    settings it held (final review M12); the owner can copy them back from that file."""
+    path = BASE / 'settings.json'
+    try:
+        raw = path.read_text(encoding='utf-8')
+    except FileNotFoundError:
+        return {}
+    try:
+        settings = json.loads(raw)
+        if isinstance(settings, dict):
+            return settings
+    except ValueError:
+        pass
+    quarantine = path.with_name(f'settings.corrupt-{time.strftime("%Y%m%d-%H%M%S")}-{uuid.uuid4().hex[:6]}.json')
+    os.replace(path, quarantine)
+    print(json.dumps({'warning': 'settings-quarantined', 'file': 'style-library/' + quarantine.name}),
+          file=sys.stderr, flush=True)
+    return {}
+
 def _save_setting(key, value):
     """Atomically persist one UI setting in settings.json, preserving everything else on disk."""
     path = BASE / 'settings.json'
     with _SETTINGS_LOCK:
-        try:
-            settings = json.loads(path.read_text(encoding='utf-8'))
-            if not isinstance(settings, dict):
-                settings = {}
-        except (OSError, ValueError):
-            settings = {}
+        settings = settings_for_update()
         settings[key] = value
         atomic_write(path, (json.dumps(settings, indent=2) + '\n').encode())
     return {key: value}

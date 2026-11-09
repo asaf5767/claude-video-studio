@@ -99,6 +99,65 @@ class MaterialsTest(unittest.TestCase):
             materials.save_upload('demo', 'huge.mp4', ExplodingStream(), materials.MAX_UPLOAD + 1)
         self.assertEqual(ctx.exception.status, 413)
 
+    def test_iphone_photos_are_accepted_as_images(self):
+        # Final review I4: HEIC/HEIF is the iPhone default; prepare_media.py converts it.
+        root = self.make_project()
+        for name in ('IMG_0001.HEIC', 'תמונה.heif'):
+            item = materials.save_upload('demo', name, io.BytesIO(b'photo'), 5)
+            self.assertEqual(item['tag'], 'image')
+            self.assertTrue((root / item['file']).is_file())
+            self.assertTrue(item['file'].startswith('materials/images/'))
+        target, mime = materials.file_path('demo', item['id'])
+        self.assertEqual(mime, 'image/heif')
+        with patch.object(materials.posters, 'ensure', return_value=root / 'poster.jpg') as ensure:
+            self.assertEqual(materials.poster_path('demo', item['id']), root / 'poster.jpg')
+        self.assertEqual(ensure.call_args.args[0], target)
+
+    def test_upload_streams_outside_the_manifest_lock(self):
+        # Final review M4: a long upload must not hold the lock every listing/serve needs.
+        root = self.make_project()
+        done = []
+        def other_thread_lists():
+            done.append(materials.list('demo'))
+        import threading as _threading
+        class Blocking(io.BytesIO):
+            def read(self, n=-1):
+                worker = _threading.Thread(target=other_thread_lists)
+                worker.start(); worker.join(timeout=5)
+                return super().read(n)
+
+        item = materials.save_upload('demo', 'clip.mp4', Blocking(b'abc'), 3)
+        self.assertEqual(len(done), 1, 'another thread could read the manifest while bytes were streaming')
+        self.assertEqual((root / item['file']).read_bytes(), b'abc')
+        self.assertFalse([p for p in (root / 'materials').rglob('.studio-upload-*')])
+
+    def test_a_failed_manifest_write_rolls_the_file_back(self):
+        # Final review M4 (round 2): never a file the manifest does not list.
+        root = self.make_project()
+        with patch.object(materials, '_write_manifest', side_effect=OSError('disk full')):
+            with self.assertRaises(materials.MaterialsError):
+                materials.save_upload('demo', 'clip.mp4', io.BytesIO(b'abc'), 3)
+        self.assertFalse([p for p in (root / 'materials').rglob('*') if p.is_file() and p.name != 'materials.json'])
+
+    def test_stale_upload_temp_files_are_cleaned_at_start(self):
+        root = self.make_project()
+        stale = [root / 'materials' / '.studio-upload-abc', root / 'materials' / 'raw' / '.studio-upload-def']
+        for path in stale:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'partial')
+        keep = root / 'materials' / 'raw' / 'take.mp4'
+        keep.write_bytes(b'video')
+        self.assertEqual(materials.clean_stale_uploads(root.parents[1]), 2)
+        self.assertFalse(any(path.exists() for path in stale))
+        self.assertTrue(keep.exists())
+
+    def test_a_short_upload_leaves_no_temp_file(self):
+        root = self.make_project()
+        with self.assertRaises(materials.MaterialsError) as ctx:
+            materials.save_upload('demo', 'clip.mp4', io.BytesIO(b'ab'), 5)
+        self.assertEqual(ctx.exception.status, 400)
+        self.assertFalse([p for p in (root / 'materials').rglob('*') if p.is_file() and p.name != 'materials.json'])
+
     def test_collision_renames(self):
         root = self.make_project()
         first = materials.save_upload('demo', 'logo.png', io.BytesIO(b'a'), 1)

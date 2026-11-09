@@ -243,7 +243,7 @@ window.ProjectFeedback = (() => {
     try {
       const response = await fetch('/feedback-link', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Studio-Action': 'feedback-link'}, body: JSON.stringify(body)});
       const selection = await reply(response);
-      if (!response.ok) throw Error(selection.error || I18N.t('feedback.copy.linkFailed'));
+      if (!response.ok) throw Error((selection.error && I18N.server(selection.error)) || I18N.t('feedback.copy.linkFailed'));
       if (!/^[a-f0-9]{24}$/.test(selection.id) || selection.project_id !== body.project_id || selection.artifact_id !== body.artifact_id || JSON.stringify(selection.note_ids?.slice().sort()) !== JSON.stringify(body.note_ids.slice().sort()))
         throw Error(I18N.t('feedback.copy.linkUnverified'));
       const link = new URL('#' + new URLSearchParams({project: project.id, ...(!all ? {artifact: destination.artifact.id} : {}), feedback: selection.id}), location.href);

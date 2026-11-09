@@ -37,14 +37,14 @@ import library
 import project_index as index
 import review_actions as storage
 from security import registered_file, MEDIA, NOTES
+from atomic import atomic_write
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import new_version  # noqa: E402  (scripts/new_version.py: the shared register.final rule)
 
 def atomic(path, data):
+    """JSON through the studio's one atomic writer (temp file, fsync, os.replace; LF on every OS)."""
     path.parent.mkdir(parents=True,exist_ok=True)
-    with tempfile.NamedTemporaryFile(mode='w',dir=path.parent,delete=False,encoding='utf-8') as f:
-        f.write(json.dumps(data,indent=2,ensure_ascii=False)+'\n'); name=f.name
-    os.replace(name,path)
+    atomic_write(path,(json.dumps(data,indent=2,ensure_ascii=False)+'\n').encode('utf-8'))
 
 DECISIONS = ('review_decision', 'approval', 'baseline', 'review_action')
 APPEND_FIELDS = ('state', 'stage', 'summary', 'next_step', 'primary_artifact')
@@ -194,6 +194,8 @@ def register_locked(kind, manifest, replace, append=False):
     return item['id']
 
 def main():
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter);parser.add_argument('kind',choices=['project','reference']);parser.add_argument('manifest',type=Path);parser.add_argument('--replace',action='store_true');parser.add_argument('--append-version',action='store_true',help='add new versions to a registered project, keeping its saved decisions');args=parser.parse_args()
     try:print(register(args.kind,args.manifest,args.replace,args.append_version))
     except (ValueError,KeyError,OSError,storage.ReviewError) as e:parser.exit(1,str(e)+'\n')

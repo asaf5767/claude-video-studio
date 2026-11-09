@@ -10,6 +10,7 @@ import math
 import shutil
 import subprocess
 import project_index as index
+import library
 from library import BASE, project_reference_candidates
 from atomic import atomic_write
 
@@ -19,10 +20,97 @@ START = '<!-- studio-review:start -->'
 END = '<!-- studio-review:end -->'
 
 
+# The decision path (POST /review-action) answers with i18n keys like the newer modules do
+# (final review I2); the English text stays the exception message for logs and other callers.
+MESSAGE_KEYS = {
+    "A prepared library source is unavailable or outside this project.": 'review.error.sourceOutside',
+    "A saved decision would leave the studio.": 'review.error.decisionLeavesStudio',
+    "A saved library version conflicts with this source. Ask your assistant to check it.": 'review.error.libraryVersionConflict',
+    "An earlier approval needs recovery. Ask your assistant to check the saved transaction.": 'review.error.earlierNeedsRecovery',
+    "Ask your assistant to prepare this project’s library entry before marking it final.": 'review.error.libraryEntryMissing',
+    "Choose a project checkpoint and action.": 'review.error.chooseCheckpoint',
+    "Invalid review action or revision.": 'review.error.invalidActionOrRevision',
+    "Invalid review action.": 'review.error.invalidAction',
+    "Invalid review request ID.": 'review.error.invalidRequestId',
+    "More than one library entry matches this checkpoint. Ask your assistant to reconcile them.": 'review.error.libraryEntryAmbiguous',
+    "Only the current checkpoint can receive this action. Refresh and review that version.": 'review.error.notCurrentCheckpoint',
+    "Project or library files changed while saving. Refresh before trying again.": 'review.error.filesChangedWhileSaving',
+    "Register this project’s review-notes file before saving an approval.": 'review.error.reviewNotesMissing',
+    "That project is not registered.": 'review.error.unknownProject',
+    "That version’s poster already exists. Use a new version.": 'review.error.posterExists',
+    "The checkpoint changed while saving. Refresh before trying again.": 'review.error.checkpointChangedWhileSaving',
+    "The decision could not be saved. Previous files were restored; try again.": 'review.error.notSavedRestored',
+    "The decision could not finish. Ask your assistant to recover the saved approval transaction.": 'review.error.couldNotFinish',
+    "The decision file leaves this project.": 'review.error.decisionFileLeavesProject',
+    "The library needs a link to this approved project’s assets.": 'review.error.libraryNeedsLink',
+    "The library points to another version. Ask your assistant to reconcile it before approval.": 'review.error.libraryOtherVersion',
+    "The library poster folder needs repair.": 'review.error.posterFolderRepair',
+    "The library poster leaves the registered poster folder.": 'review.error.posterLeavesFolder',
+    "The library poster needs an actual saved image.": 'review.error.posterNeedsImage',
+    "The library slide set differs from this checkpoint.": 'review.error.slidesDiffer',
+    "The library video differs from this checkpoint. Ask your assistant to reconcile it.": 'review.error.videoDiffers',
+    "The prepared library entry is incomplete. Ask your assistant to finish it.": 'review.error.libraryEntryIncomplete',
+    "The prepared library entry needs valid lists.": 'review.error.libraryEntryLists',
+    "The project folder needs to be relinked safely.": 'review.error.projectFolderRelink',
+    "The project or files changed. Refresh and read the current checkpoint before approving.": 'review.error.projectChanged',
+    "The saved library source belongs to another project. Ask your assistant to check it.": 'review.error.sourceOtherProject',
+    "The saved library source does not match this project’s version history. Ask your assistant to check it.": 'review.error.sourceHistoryMismatch',
+    "The saved library video hash differs from this checkpoint. Ask your assistant to reconcile it.": 'review.error.videoHashDiffers',
+    "The studio decision files need safe local paths before saving.": 'review.error.unsafePaths',
+    "This checkpoint has no registered files to approve.": 'review.error.noFiles',
+    "This library ID is already in use. Ask your assistant to reconcile it.": 'review.error.libraryIdInUse',
+    "This review request has already been used. Refresh before trying again.": 'review.error.requestUsed',
+    "This version needs a saved cover image before final approval.": 'review.error.needsCover',
+    "This video’s technique examples need rechecking before final approval. Ask your assistant to reconcile them.": 'review.error.techniquesRecheck',
+}
+
+
 class ReviewError(Exception):
     def __init__(self, message, status=409):
         super().__init__(message)
         self.status = status
+        self.message_key = MESSAGE_KEYS.get(message)
+
+
+# Decision text written into the project record, STATUS.md and review notes, in the studio's
+# current UI language (final review I2). The next step is the studio's own "Send to Claude".
+DECISION_TEXT = {
+    'he': {
+        'reopen.title': 'נפתח מחדש לשינויים',
+        'reopen.message': 'ביקשתם שינויים אחרי {checkpoint}. הקבצים שאושרו נשמרים.',
+        'reopen.next': 'כתבו מה לשנות בהערות על הסרטון ולחצו על „שליחה לקלוד“. הגרסה שאושרה נשמרת בזמן שנבנית גרסה חדשה.',
+        'reopen.baseline': '{checkpoint} אושר קודם. נפתח סבב שינויים חדש.',
+        'final.title': 'אושר כסופי',
+        'final.message': '{checkpoint} אושר וסומן כסופי בסטודיו.',
+        'final.next': 'הסרטון הסופי מוכן ונשמר בהשראה. אפשר לפתוח אותו כאן מחדש לסבב שינויים נוסף.',
+        'approve.title': 'השלב אושר',
+        'approve.message.storyboard': '{checkpoint} אושר. השלב הבא הוא לוח התכנון.',
+        'approve.message.edit': '{checkpoint} אושר. השלב הבא הוא העריכה.',
+        'approve.next.storyboard': 'לחצו על „שליחה לקלוד“ כדי להתחיל את לוח התכנון.',
+        'approve.next.edit': 'לחצו על „שליחה לקלוד“ כדי להתחיל את העריכה המעוצבת.',
+    },
+    'en': {
+        'reopen.title': 'Reopened for changes',
+        'reopen.message': 'Changes requested after {checkpoint}. The approved files remain available.',
+        'reopen.next': 'Write what to change as notes on the video and press “Send to Claude”. The approved version is kept while a new one is built.',
+        'reopen.baseline': '{checkpoint} was approved previously. A new round of changes is open.',
+        'final.title': 'Final approved',
+        'final.message': '{checkpoint} was approved and marked final in the studio.',
+        'final.next': 'The final video is ready and saved in the Reference Library. Reopen it here for another round of changes.',
+        'approve.title': 'Checkpoint approved',
+        'approve.message.storyboard': '{checkpoint} was approved. The next step is the storyboard.',
+        'approve.message.edit': '{checkpoint} was approved. The next step is editing.',
+        'approve.next.storyboard': 'Press “Send to Claude” to start the visual storyboard.',
+        'approve.next.edit': 'Press “Send to Claude” to start the designed edit.',
+    },
+}
+
+
+def decision_text(name, **params):
+    text = DECISION_TEXT.get(library.ui_language(), DECISION_TEXT['he'])[name]
+    for key, value in params.items():
+        text = text.replace('{' + key + '}', value)
+    return text
 
 
 def json_bytes(data):
@@ -337,23 +425,23 @@ def apply_decision(body):
         if body['action'] == 'reopen':
             reopened_stage = {'spoken_cut': 'assembly', 'storyboard': 'storyboard'}.get(options['kind'], 'refine')
             project.update(state='review', stage=reopened_stage, review_action='reopened')
-            message = f'Changes requested after {checkpoint}. The approved files remain available.'
-            project['next_step'] = 'Describe the changes in your editing chat. Keep the accepted version while a new review is built.'
-            project['baseline'] = f'{checkpoint} was approved previously. A new round of changes is open.'
-            title = 'Reopened for changes'
+            message = decision_text('reopen.message', checkpoint=checkpoint)
+            project['next_step'] = decision_text('reopen.next')
+            project['baseline'] = decision_text('reopen.baseline', checkpoint=checkpoint)
+            title = decision_text('reopen.title')
         elif options['kind'] == 'final':
             final_reference(project, artifact, event, changes, expected)
             project.update(state='final', stage='final')
             artifact['role'] = 'final'
-            message = f'{checkpoint} was approved and marked final in the studio.'
-            project['next_step'] = 'Final assets are ready and saved in the Reference Library. Reopen here for another round of changes.'
-            title = 'Final approved'
+            message = decision_text('final.message', checkpoint=checkpoint)
+            project['next_step'] = decision_text('final.next')
+            title = decision_text('final.title')
         else:
             next_stage = 'storyboard' if options['kind'] == 'spoken_cut' else 'edit'
             project.update(state='in_progress', stage=next_stage)
-            message = f'{checkpoint} was approved. The next step is {"storyboarding" if next_stage == "storyboard" else "editing"}.'
-            project['next_step'] = f'Continue in your editing chat to start {"the visual storyboard" if next_stage == "storyboard" else "the designed edit"}.'
-            title = 'Checkpoint approved'
+            message = decision_text('approve.message.' + next_stage, checkpoint=checkpoint)
+            project['next_step'] = decision_text('approve.next.' + next_stage)
+            title = decision_text('approve.title')
         if body['action'] == 'approve':
             project.pop('review_action', None)
         project['review_decision'] = {k: v for k, v in event.items() if k != 'files'}

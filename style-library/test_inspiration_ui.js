@@ -1,6 +1,7 @@
 /* Task 13: the Inspiration tab's style card (inspiration-ui.js) and the reference demo's
    moment list (app.js). vm sandbox with a tiny generic fake DOM, the same approach as
-   test_materials_ui.js; no browser or packages needed. */
+   test_materials_ui.js; no browser or packages needed. Learning a style runs through the
+   studio's one Send-to-Claude card (send-ui.js, loaded into the same sandbox; final review I3). */
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
@@ -8,6 +9,7 @@ const {join} = require('node:path');
 const vm = require('node:vm');
 
 const source = readFileSync(join(__dirname, 'dist/inspiration-ui.js'), 'utf8');
+const sendSource = readFileSync(join(__dirname, 'dist/send-ui.js'), 'utf8');
 const he = JSON.parse(readFileSync(join(__dirname, 'dist/i18n/he.json'), 'utf8'));
 
 function i18nStub() {
@@ -35,6 +37,7 @@ function makeNode(tag) {
     },
     setAttribute(name, value) { this.attributes[name] = String(value); if (name === 'id') this.id = String(value); },
     getAttribute(name) { return this.attributes[name]; },
+    removeAttribute(name) { delete this.attributes[name]; },
     append(...nodes) { nodes.forEach(n => { if (typeof n === 'string') { const t = makeNode('#text'); t.textContent = n; n = t; } n.parentNode = this; this.children.push(n); }); },
     replaceChildren(...nodes) { this.children = []; this.append(...nodes); },
     remove() { if (this.parentNode) this.parentNode.children.splice(this.parentNode.children.indexOf(this), 1); this.parentNode = null; },
@@ -54,6 +57,7 @@ function findAll(root, predicate) {
 const find = (root, predicate) => findAll(root, predicate)[0] || null;
 const byClass = cls => n => n._classes && n._classes.has(cls);
 const flush = () => new Promise(resolve => setImmediate(resolve));
+const settle = async () => { for (let i = 0; i < 20; i++) await flush(); };
 const reply = (status, data) => ({ok: status >= 200 && status < 300, status, headers: {get: () => 'application/json'}, json: async () => data});
 
 const CARD_FIELDS = {id: 'file-abc', name_he: 'סגנון', name_en: 'Style', captions: 'מילה אחת בכל פעם', titles: 'כותרת גדולה',
@@ -67,6 +71,7 @@ function harness(options = {}) {
   const $ = sel => { if (!nodes.has(sel)) { const n = makeNode('div'); n.id = sel.slice(1); nodes.set(sel, n); } return nodes.get(sel); };
   $('#style-dialog').open = true;
   const calls = [], timers = [], copies = [], opened = [];
+  let timerId = 0;
   const routes = options.routes || {};
   const fetch = async (url, init = {}) => {
     calls.push({url, init});
@@ -83,21 +88,28 @@ function harness(options = {}) {
   }
   const context = {
     window: {}, $, I18N: i18nStub(), fetch, URLSearchParams, XMLHttpRequest: FakeXHR, JSON, encodeURIComponent,
-    document: {createElement: makeNode, addEventListener() {}},
+    document: {createElement: makeNode, addEventListener() {}, hidden: false},
     navigator: {clipboard: {writeText: async text => { if (options.clipboardFails) throw Error('no'); copies.push(text); }}},
-    setTimeout: (fn, ms) => { timers.push(fn); return timers.length; }, clearTimeout: () => {},
+    setTimeout: fn => { const id = ++timerId; timers.push({id, fn}); return id; },
+    clearTimeout: id => { const i = timers.findIndex(t => t.id === id); if (i !== -1) timers.splice(i, 1); },
+    Date, location: {hash: ''},
     closeStyle: () => { $('#style-dialog').open = false; opened.push('closeStyle'); },
     confirm: text => { opened.push(['confirm', text]); return options.confirm ?? true; },
   };
   context.window.NewVideo = {open: (button, opts) => opened.push(opts)};
   vm.createContext(context);
+  context.window = Object.assign(context, context.window);
+  if (!options.noSendUI) vm.runInContext(sendSource, context);
   vm.runInContext(source, context);
   const panel = $('#style-card-panel');
   return {
     context, $, panel, calls, timers, copies, opened, xhrs, Inspiration: context.window.Inspiration,
-    async tick() { const due = timers.splice(0); due.forEach(fn => fn()); await flush(); await flush(); },
+    async tick() { const due = timers.splice(0); due.forEach(t => t.fn()); await settle(); },
     button: key => find(panel, n => n.tagName === 'BUTTON' && n.textContent === he[key]),
     status: () => find(panel, byClass('style-card-status')).textContent,
+    send: () => find(panel, byClass('send-section')),
+    message: () => find(panel, byClass('send-message')).textContent,
+    primary: () => find(panel, byClass('send-primary')),
   };
 }
 
@@ -123,31 +135,34 @@ test('composeCard keeps identity, extra keys and body, one line per field', () =
   assert.match(fresh, /^---\nid: file-abc\nname_he: כותרת: שנייה\nname_en: כותרת: שנייה\ncaptions: x\ntitles: \n/);
 });
 
-test('no card yet: rule, learn button, and a running job shows its current step', async () => {
-  const states = [{state: 'running', steps: []}, {state: 'running', steps: [{key: 'watch', state: 'done'}, {key: 'analyze', state: 'running'}, {key: 'card', state: 'todo'}]},
+const NO_CARD = () => reply(200, card({exists: false, fields: {}, pinned: [], revision: null}));
+
+test('no card yet: the rule, then the one Send-to-Claude card runs learn-style with steps', async () => {
+  const states = [{state: 'running', steps: [{key: 'watch', state: 'done'}, {key: 'analyze', state: 'running'}, {key: 'card', state: 'todo'}]},
     {state: 'done', steps: []}];
   let cardCalls = 0;
   const h = harness({routes: {
-    '/style-card': () => reply(200, ++cardCalls === 1 ? card({exists: false, fields: {}, pinned: [], revision: null}) : card()),
+    '/style-card': () => (++cardCalls === 1 ? NO_CARD() : reply(200, card())),
     '/claude-job:POST': () => reply(202, {job: 'a'.repeat(32)}),
-    '/claude-job': url => url.includes('reference=') ? {ok: false, status: 400, json: async () => { throw Error('html'); }} : reply(200, states.shift()),
+    '/claude-job': url => url.includes('reference=') ? reply(200, {job: null}) : reply(200, states.shift()),
   }});
   h.Inspiration.mount({id: 'file-abc', title: 'כותרת', collection: 'reference'});
-  await flush(); await flush();
+  await settle();
   assert.equal(h.panel.hidden, false);
   assert.match(h.panel.text, /לומדים את הטכניקה, לא מעתיקים את התוכן — קלוד לא ישתמש בצילומים, במילים או בלוגו של היוצר\./);
   assert.equal(find(h.panel, n => n.tagName === 'FORM'), null);
-  h.button('inspiration.learn.button').click();
-  await flush(); await flush();
+  assert.ok(h.send(), 'the shared send-ui card is mounted in the style panel');
+  assert.equal(h.primary().textContent, he['inspiration.learn.button']);
+  h.primary().click();
+  await settle();
   const post = h.calls.find(c => c.url === '/claude-job' && c.init.method === 'POST');
   assert.deepEqual(JSON.parse(post.init.body), {reference: 'file-abc', task: 'learn-style'});
   assert.equal(post.init.headers['X-Studio-Action'], 'claude-job');
-  assert.equal(h.status(), he['inspiration.learn.starting']);
+  assert.equal(h.primary().textContent, he['claude.cancel'], 'a running learn-style job can be stopped');
   await h.tick();
-  assert.equal(h.status(), he['inspiration.learn.running'].replace('{n}', '2').replace('{total}', '3').replace('{step}', he['inspiration.step.analyze']));
+  assert.equal(h.message(), he['claude.state.running'].replace('{step}', he['claude.step.analyze']));
   await h.tick();
-  assert.equal(h.status(), he['inspiration.learn.done']);
-  assert.equal(cardCalls, 2);
+  assert.equal(cardCalls, 2, 'done reloads the card');
   const rows = findAll(h.panel, byClass('style-card-row'));
   assert.equal(rows.length, 9);
   assert.deepEqual(rows.map(r => find(r, n => n.tagName === 'LABEL' && n.attributes.for).textContent),
@@ -155,38 +170,70 @@ test('no card yet: rule, learn button, and a running job shows its current step'
   assert.equal(find(rows[2], n => n.type === 'checkbox').checked, true);
   assert.equal(find(rows[0], n => n.type === 'checkbox').checked, false);
   assert.equal(find(rows[0], n => n.tagName === 'TEXTAREA').value, 'מילה אחת בכל פעם');
+  assert.equal(h.primary().textContent, he['inspiration.learn.again']);
 });
 
-test('a failed job shows a translated message, not the raw key', async () => {
+test('a failed job shows the translated message and the "copy details for support" link', async () => {
   const h = harness({routes: {
-    '/style-card': () => reply(200, card({exists: false, fields: {}, pinned: [], revision: null})),
+    '/style-card': NO_CARD,
     '/claude-job:POST': () => reply(202, {job: 'b'.repeat(32)}),
-    '/claude-job': url => url.includes('reference=') ? reply(404, {}) : reply(200, {state: 'failed', steps: [], message_key: 'claude.not-logged-in'}),
+    '/claude-job': url => url.includes('reference=') ? reply(200, {job: null}) : reply(200, {job: 'b'.repeat(32), state: 'failed', steps: [], message_key: 'claude.not-logged-in'}),
+    '/claude-job-log': () => reply(200, {log: 'line one\nline two'}),
   }});
   h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
-  await flush(); await flush();
-  h.button('inspiration.learn.button').click();
-  await flush(); await flush(); await h.tick();
-  assert.equal(h.status(), he['inspiration.learn.notLoggedIn']);
+  await settle();
+  h.primary().click();
+  await settle(); await h.tick();
+  assert.equal(h.message(), he['claude.not-logged-in']);
+  const support = find(h.panel, byClass('send-support'));
+  assert.equal(support.hidden, false);
+  support.click();
+  await settle();
+  assert.match(h.copies[0], /line one\nline two$/);
 });
 
-test('claude missing: plain message and a copy-to-chat fallback with the learn-style prompt', async () => {
+test('cancel stops a learn-style run', async () => {
+  const job = 'f'.repeat(32);
+  let cancelled = null;
   const h = harness({routes: {
-    '/style-card': () => reply(200, card({exists: false, fields: {}, pinned: [], revision: null})),
-    '/claude-job:POST': () => reply(409, {error: 'claude-missing'}),
+    '/style-card': NO_CARD,
+    '/claude-job:POST': () => reply(202, {job}),
+    '/claude-job-cancel:POST': (url, init) => { cancelled = JSON.parse(init.body); return reply(200, {job, state: 'stopped', steps: []}); },
+    '/claude-job': url => url.includes('reference=') ? reply(200, {job: null}) : reply(200, {state: 'running', steps: []}),
   }});
   h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
-  await flush(); await flush();
-  h.button('inspiration.learn.button').click();
-  await flush(); await flush();
-  assert.equal(h.status(), he['inspiration.learn.missing']);
-  const fallback = find(h.panel, byClass('style-card-fallback'));
-  assert.equal(fallback.hidden, false);
-  const prompt = find(fallback, n => n.tagName === 'TEXTAREA').value;
-  assert.match(prompt, /^\/learn-style references\/file-abc\n/);
-  find(fallback, n => n.tagName === 'BUTTON').click();
-  await flush();
-  assert.deepEqual(h.copies, [prompt]);
+  await settle();
+  h.primary().click();
+  await settle();
+  h.primary().click();
+  await settle();
+  assert.deepEqual(cancelled, {job});
+  assert.equal(h.message(), he['claude.stopped']);
+});
+
+test('claude missing: copy-to-chat becomes the main action and copies the learn-style request', async () => {
+  const h = harness({routes: {
+    '/style-card': NO_CARD,
+    '/claude-job:POST': () => reply(409, {error: 'claude-missing'}),
+    '/claude-job': () => reply(200, {job: null}),
+  }});
+  h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
+  await settle();
+  h.primary().click();
+  await settle();
+  assert.equal(h.message(), he['claude-missing']);
+  h.primary().click();
+  await settle();
+  assert.deepEqual(h.copies, [he['claude.copy.learnStyle'].replace('{folder}', 'references/file-abc')]);
+});
+
+test('the old duplicate learn-style client is gone (one progress component)', () => {
+  for (const name of ['startLearning', 'stepLine', 'POLL_MS', "fetch('/claude-job'", 'inspiration.learn.running']) {
+    assert.equal(source.includes(name), false, name);
+  }
+  for (const key of ['inspiration.learn.running', 'inspiration.learn.missing', 'inspiration.step.watch']) {
+    assert.equal(key in he, false, key);
+  }
 });
 
 test('saving sends the edited card with pins; a 400 names the missing fields in Hebrew', async () => {
@@ -279,12 +326,13 @@ test('fix round 1: "learn again" asks first, since unpinned rows will change', a
     const h = harness({confirm: answer, routes: {
       '/style-card': () => reply(200, card()),
       '/claude-job:POST': () => reply(202, {job: 'e'.repeat(32)}),
-      '/claude-job': url => url.includes('reference=') ? reply(404, {}) : reply(200, {state: 'running', steps: []}),
+      '/claude-job': url => url.includes('reference=') ? reply(200, {job: null}) : reply(200, {state: 'running', steps: []}),
     }});
     h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
-    await flush(); await flush();
-    h.button('inspiration.learn.again').click();
-    await flush(); await flush();
+    await settle();
+    assert.equal(h.primary().textContent, he['inspiration.learn.again']);
+    h.primary().click();
+    await settle();
     assert.equal(JSON.stringify(h.opened[0]), JSON.stringify(['confirm', he['inspiration.learn.confirmAgain']]));
     assert.equal(h.calls.some(c => c.init.method === 'POST'), answer);
   }
@@ -294,30 +342,43 @@ test('fix round 1: "learn again" asks first, since unpinned rows will change', a
 test('fix round 1: reopening a reference re-attaches to a learn-style job that is still running', async () => {
   const job = 'c'.repeat(32);
   const h = harness({routes: {
-    '/style-card': () => reply(200, card({exists: false, fields: {}, pinned: [], revision: null})),
-    '/claude-job': url => url.includes('reference=file-abc') ? reply(200, {job, state: 'running', steps: []})
+    '/style-card': NO_CARD,
+    '/claude-job': url => url.includes('reference=file-abc') ? reply(200, {job, state: 'running', steps: [], started: Date.now() / 1000})
       : reply(200, {state: 'running', steps: [{key: 'watch', state: 'running'}, {key: 'analyze', state: 'todo'}, {key: 'card', state: 'todo'}]}),
   }});
   h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
-  await flush(); await flush(); await flush();
+  await settle(); await h.tick();
   assert.ok(h.calls.some(c => c.url === '/claude-job?id=' + job));
-  assert.equal(h.status(), he['inspiration.learn.running'].replace('{n}', '1').replace('{total}', '3').replace('{step}', he['inspiration.step.watch']));
-  assert.equal(h.button('inspiration.learn.button').disabled, true);
+  assert.equal(h.message(), he['claude.state.running'].replace('{step}', he['claude.step.watch']));
+  assert.equal(h.primary().textContent, he['claude.cancel']);
 });
 
-test('fix round 1: a busy reply carries the running job, and the panel attaches to it', async () => {
+test('fix round 1: a busy reply re-attaches to the job that is already running', async () => {
   const job = 'd'.repeat(32);
+  let lookups = 0;
   const h = harness({routes: {
-    '/style-card': () => reply(200, card({exists: false, fields: {}, pinned: [], revision: null})),
+    '/style-card': NO_CARD,
     '/claude-job:POST': () => reply(409, {error: 'busy', job}),
-    '/claude-job': url => url.includes('reference=') ? reply(404, {}) : reply(200, {state: 'running', steps: [{key: 'card', state: 'running'}]}),
+    '/claude-job': url => url.includes('reference=') ? reply(200, ++lookups === 1 ? {job: null} : {job, state: 'running', steps: [], started: Date.now() / 1000})
+      : reply(200, {state: 'running', steps: [{key: 'card', state: 'running'}]}),
   }});
   h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
-  await flush(); await flush();
-  h.button('inspiration.learn.button').click();
-  await flush(); await flush(); await flush();
+  await settle();
+  h.primary().click();
+  await settle(); await h.tick();
   assert.ok(h.calls.some(c => c.url === '/claude-job?id=' + job));
-  assert.equal(h.status(), he['inspiration.learn.running'].replace('{n}', '1').replace('{total}', '1').replace('{step}', he['inspiration.step.card']));
+  assert.equal(h.message(), he['claude.state.running'].replace('{step}', he['claude.step.card']));
+});
+
+test('closing the reference hands the page back to the card that was active before', async () => {
+  const h = harness({routes: {'/style-card': NO_CARD, '/claude-job': () => reply(200, {job: null})}});
+  const released = [];
+  const real = h.context.SendUI.release;
+  h.context.SendUI.release = token => { released.push(token); return real(token); };
+  h.Inspiration.mount({id: 'file-abc', title: 't', collection: 'reference'});
+  await settle();
+  h.Inspiration.unmount();
+  assert.equal(released.length, 1);
 });
 
 test('fix round 1: a body that still holds a broken front-matter block is not written twice', () => {

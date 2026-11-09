@@ -102,7 +102,28 @@ def get_asset_poster(project_id, file_id):
 
 
 def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """sha256 of a file, streamed (review media can be gigabytes)."""
+    sha = hashlib.sha256()
+    with open(path, 'rb') as stream:
+        for block in iter(lambda: stream.read(1 << 20), b''):
+            sha.update(block)
+    return sha.hexdigest()
+
+
+def registered_project(project_id, folder=True):
+    """(record, root) for a registered project, or None for an unknown or malformed id. With
+    `folder`, root must also be an existing direct child of projects/ (resolved, so a link or
+    `..` cannot leave it). The one confinement check shared by materials, choices and the
+    Claude runner (final review M13b); registry read errors (OSError/ValueError) propagate."""
+    if not isinstance(project_id, str) or not TOKEN.fullmatch(project_id):
+        return None
+    record = next((p for p in registry()['projects'] if p.get('id') == project_id), None)
+    if record is None:
+        return None
+    root = (STUDIO / 'projects' / project_id).resolve()
+    if folder and (root.parent != (STUDIO / 'projects').resolve() or not root.is_dir()):
+        return None
+    return record, root
 
 
 def primary_files(artifact):
@@ -282,9 +303,8 @@ def starter_request_text(project_id, lang=None):
     lines.append('- ' + t('claude.copy.brief', path=folder + '/brief.md'))
     look = picked.get('look')
     if isinstance(look, str) and look.startswith('ref:') and TOKEN.fullmatch(look[4:]):
-        card = STUDIO / 'references' / look[4:] / 'style-card.md'
-        path = f'references/{look[4:]}/' + ('style-card.md' if card.is_file() else '')
-        lines.append('- ' + t('claude.copy.lookReference', path=path))
+        # Concern 3: the editing skills read the studio's copy of the look, never the reference.
+        lines.append('- ' + t('claude.copy.lookReference', path=folder + '/look.json'))
     elif isinstance(look, str) and TOKEN.fullmatch(look):
         lines.append('- ' + t('claude.copy.lookCard', path=f'looks/{look}/card.md'))
     try:

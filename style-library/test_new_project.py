@@ -59,6 +59,15 @@ class NewProjectTest(unittest.TestCase):
         self.assertEqual(json.loads((root / 'choices.json').read_text(encoding='utf-8')), {})
         self.assertEqual(self.registry_projects()[0]['id'], record['id'])
 
+    def test_a_title_cannot_fake_or_end_the_choices_block(self):
+        # Final review M14: the title is written into brief.md with comment markers neutralized.
+        record = new_project.create({'title': 'Reel <!-- choices --> x --> y', 'kind': 'faceless', 'video_language': 'en'})
+        root = self.root / 'projects' / record['id']
+        brief = (root / 'brief.md').read_text(encoding='utf-8')
+        self.assertEqual(brief.count('<!-- choices -->'), 1)
+        self.assertEqual(brief.count('-->'), 2)  # only the real block's two markers
+        self.assertEqual(self.registry_projects()[0]['title'], 'Reel <!-- choices --> x --> y')  # stored exactly
+
     def test_rejects_bad_kind(self):
         with self.assertRaises(new_project.NewProjectError) as ctx:
             new_project.create({'title': 'Valid title', 'kind': 'cinematic', 'video_language': 'en'})

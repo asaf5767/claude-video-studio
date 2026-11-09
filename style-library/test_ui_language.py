@@ -81,6 +81,23 @@ class UiLanguageTest(unittest.TestCase):
         self.assertEqual(saved['studio_name'], 'My Studio')
         self.assertEqual(saved['language'], 'en')
 
+    def test_a_corrupt_settings_file_is_quarantined_not_lost(self):
+        # Final review M12: a hand-edit typo must not make the next click drop add-ons/branding.
+        broken = '{"studio_name": "My Studio", "addons": {"voice": {"enabled": true},}'
+        (self.base / 'settings.json').write_text(broken, encoding='utf-8')
+        with patch('sys.stderr'):
+            status, _ = self.request('POST', '/ui-language', json.dumps({'language': 'en'}), **self.post_headers())
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads((self.base / 'settings.json').read_text(encoding='utf-8')), {'language': 'en'})
+        kept = list(self.base.glob('settings.corrupt-*.json'))
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0].read_text(encoding='utf-8'), broken)
+        import addons
+        (self.base / 'settings.json').write_text('[1, 2]', encoding='utf-8')
+        with patch('sys.stderr'):
+            addons.save({'voice': {'enabled': False, 'provider': None}})
+        self.assertEqual(len(list(self.base.glob('settings.corrupt-*.json'))), 2)
+
     def test_write_failure_leaves_existing_settings_file_intact(self):
         """A crash mid-write must never leave settings.json truncated or half-written."""
         (self.base / 'settings.json').write_text(json.dumps({'language': 'he'}), encoding='utf-8')

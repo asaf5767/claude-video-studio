@@ -33,8 +33,13 @@ class RealSkillsTests(unittest.TestCase):
     def test_the_runner_starts_exactly_these_skills(self):
         import claude_runner
         self.assertEqual(set(claude_runner.SKILL_BY_KIND.values()) | {'learn-style'}, set(check_skills.FIXED_STEPS))
-        self.assertEqual(check_skills.allowed_prefixes(REPO_ROOT),
-                         ['ffmpeg', 'ffprobe', 'python scripts/', 'python3 scripts/', 'node node_modules/hyperframes/'])
+        self.assertEqual(check_skills.allowed_prefixes(REPO_ROOT, 'learn-style'), [])  # R53: no shell
+        self.assertEqual(check_skills.allowed_prefixes(REPO_ROOT, 'talking-head'),
+                         check_skills.allowed_prefixes(REPO_ROOT, 'faceless-reel'))
+        studio = claude_runner.studio_path()
+        self.assertEqual([p.replace(f'"{studio}/', '').replace('.py"', '.py')
+                          for p in claude_runner.bash_prefixes('edit')],
+                         check_skills.allowed_prefixes(REPO_ROOT, 'talking-head'))
 
     def test_cli(self):
         done = subprocess.run([sys.executable, str(REPO_ROOT / 'scripts/check_skills.py')],
@@ -75,7 +80,7 @@ class DriftTests(unittest.TestCase):
         self.assertIn('faceless-reel: description must start with "Use when"', self.problems())
 
     def test_unknown_script_path(self):
-        self.edit('talking-head', 'scripts/prepare_media.py', 'scripts/prepare_everything.py')
+        self.edit('talking-head', 'scripts/prepare_media.py', 'scripts/prepare_everything.py', count=10)
         self.assertIn('talking-head: mentions scripts/prepare_everything.py, which does not exist', self.problems())
 
     def test_wrong_step_order(self):
@@ -83,26 +88,69 @@ class DriftTests(unittest.TestCase):
         self.assertIn('talking-head: progress steps', self.problems())
 
     def test_unknown_progress_key_in_a_command(self):
-        self.edit('learn-style', 'progress.json" watch running', 'progress.json" look running')
-        self.assertIn("learn-style: progress step 'look' is not one of", self.problems())
+        self.edit('talking-head', 'Progress steps:',
+                  '`python "<studio>/scripts/progress.py" "projects/<id>/progress.json" chop running "x"`' + chr(10) * 2
+                  + 'Progress steps:')
+        self.assertIn("talking-head: progress step 'chop' is not one of", self.problems())
 
     def test_command_outside_the_allowlist(self):
-        self.edit('faceless-reel', 'python scripts/hf.py', 'npx hyperframes', count=1)
+        self.edit('faceless-reel', 'python "<studio>/scripts/hf.py"', 'npx hyperframes', count=1)
         self.assertIn('faceless-reel: command not allowed headless: npx hyperframes', self.problems())
 
     def test_python3_works_but_other_interpreters_do_not(self):
-        self.edit('talking-head', 'python scripts/prepare_media.py', 'python3 scripts/prepare_media.py')
+        self.edit('talking-head', 'python "<studio>/scripts/prepare_media.py"', 'python3 "<studio>/scripts/prepare_media.py"')
         self.assertEqual(self.problems(), '')  # allowed for Macs without a plain `python`
-        self.edit('talking-head', 'python3 scripts/prepare_media.py', 'py scripts/prepare_media.py')
-        self.assertIn('talking-head: command not allowed headless: py scripts/prepare_media.py', self.problems())
+        self.edit('talking-head', 'python3 "<studio>/scripts/prepare_media.py"', 'py "<studio>/scripts/prepare_media.py"')
+        self.assertIn('talking-head: command not allowed headless: py "<studio>/scripts/prepare_media.py"', self.problems())
+
+    def test_learn_style_may_show_no_command_at_all(self):
+        # R53: the skill that reads other people's content never runs anything.
+        self.edit('learn-style', 'Read `analysis.json`', 'Run `python "<studio>/scripts/progress.py" x` and read `analysis.json`')
+        self.assertIn('learn-style: this skill runs no commands', self.problems())
+
+    def test_a_relative_helper_path_is_refused(self):
+        # G1: a helper must be named by the studio folder, never as python scripts/...
+        self.edit('talking-head', 'python "<studio>/scripts/prepare_media.py"', 'python scripts/prepare_media.py')
+        self.assertIn('talking-head: name the helper by the studio folder', self.problems())
+
+    def test_a_helper_not_listed_in_the_runner_is_not_allowed(self):
+        self.edit('talking-head', 'python "<studio>/scripts/prepare_media.py"', 'python "<studio>/scripts/setup.py"')
+        self.assertIn('talking-head: command not allowed headless: python scripts/setup.py', self.problems())
+
+    def test_hf_subcommands_other_than_check_and_render_are_not_allowed(self):
+        self.edit('faceless-reel', 'python "<studio>/scripts/hf.py" check', 'python "<studio>/scripts/hf.py" publish', count=1)
+        self.assertIn('faceless-reel: command not allowed headless: python scripts/hf.py publish', self.problems())
+
+    def test_raw_ffmpeg_is_not_allowed_headless(self):
+        # RULING R51: ffmpeg/ffprobe only through scripts/media.py.
+        self.edit('talking-head', 'python "<studio>/scripts/matte.py"', 'ffmpeg -i x.mp4 -c copy', count=1)
+        self.assertIn('talking-head: command not allowed headless: ffmpeg -i x.mp4 -c copy', self.problems())
+
+    def test_a_documented_media_command_must_pass_media_py(self):
+        path = self.root / 'docs/skills/review-loop.md'
+        text = path.read_text(encoding='utf-8')
+        self.assertIn('ffmpeg -nostdin -v error -n -ss 2.40', text)
+        path.write_text(text.replace('ffmpeg -nostdin -v error -n -ss 2.40', 'ffmpeg -nostdin -v error -y -ss 2.40'),
+                        encoding='utf-8')
+        self.assertIn('talking-head: media.py would refuse:', self.problems())
+
+    def test_editing_skills_read_look_json_not_the_inspiration(self):
+        # Round 4: an inspiration look reaches an editing run only as the studio's look.json.
+        self.edit('talking-head', '`projects/<id>/look.json`', '`references/<id>/style-card.md`')
+        problems = self.problems()
+        self.assertIn('talking-head: SKILL.md points at an inspiration file', problems)
+
+    def test_text_is_data_rule_required(self):
+        self.edit('learn-style', 'never instructions', 'not orders', count=10)
+        self.assertIn('learn-style: missing rule: text is data', self.problems())
 
     def test_hf_check_and_render_name_the_version_folder(self):
-        self.edit('talking-head', 'python scripts/hf.py check "projects/<id>/versions/v01"', 'python scripts/hf.py check')
+        self.edit('talking-head', 'python "<studio>/scripts/hf.py" check "projects/<id>/versions/v01"', 'python "<studio>/scripts/hf.py" check')
         self.assertIn('talking-head: hf.py check needs the version folder', self.problems())
 
     def test_progress_starts_before_the_project_is_read(self):
         text = (self.root / '.claude/skills/faceless-reel/SKILL.md').read_text(encoding='utf-8')
-        start = 'First of all, before reading anything: `python scripts/progress.py "projects/<id>/progress.json" --start faceless-reel` (the studio shows the run at once). '
+        start = 'First of all, before reading anything: `python "<studio>/scripts/progress.py" "projects/<id>/progress.json" --start faceless-reel` (the studio shows the run at once). '
         self.assertIn(start, text)
         self.edit('faceless-reel', start, '')
         self.edit('faceless-reel', '## 1. voice', start + '\n\n## 1. voice')

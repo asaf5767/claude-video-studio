@@ -9,7 +9,7 @@ Captions come from the word timings of the edit (`cut.words.json` in a talking-h
 ## Build the cues
 
 ```bash
-python scripts/captions.py "projects/<id>/versions/v01/cut.words.json" "projects/<id>/versions/v01/captions.json" --lang he --mode word --duration 31.4
+python "<studio>/scripts/captions.py" "projects/<id>/versions/v01/cut.words.json" "projects/<id>/versions/v01/captions.json" --lang he --mode word --duration 31.4
 ```
 
 `--lang` is the video language; `--duration` is the edit's length (the cut's `cut.map.json` duration, or the voice length) so no caption outlasts the video. `--mode word` (one word, or two quick short words, at a time) for energetic looks (Headline, Collage); `--mode line` for calm ones (Soft, Signature) and as the default. `--lines 2` only when the look card asks for two lines. Each cue has `start`/`end` (seconds), `lines`, `html` and per-word `html` with times.

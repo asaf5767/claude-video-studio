@@ -15,6 +15,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'style-library'))
 import looks  # noqa: E402  (REQUIRED_KEYS and the card parser shared with built-in looks)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jobscope  # noqa: E402  (RULING R51: every path stays inside the job folder)
 
 
 def check(folder):
@@ -36,9 +38,13 @@ def check(folder):
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, 'reconfigure'):  # Hebrew JSON on a Windows pipe/console (final review M5)
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('folder', type=Path)
     args = parser.parse_args(argv)
+    if (code := jobscope.refuse(args.folder)) is not None:
+        return code
     result = check(args.folder)
     print(json.dumps(result, ensure_ascii=False))
     return 0 if result['ok'] else 1

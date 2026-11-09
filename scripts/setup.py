@@ -506,6 +506,16 @@ def print_friendly_report(report, lang):
     print(setup_messages.message('setup.studio-ready-yes' if report.get('ready_for_studio') else 'setup.studio-ready-no', lang))
     print(setup_messages.message('setup.media-ready-yes' if report.get('ready_for_media') else 'setup.media-ready-no', lang))
 
+def write_integrity_baseline():
+    """Record the installed studio's files (style-library/integrity.py, RULING R51): every
+    "Send to Claude" run checks them before and after. Never fails setup."""
+    try:
+        sys.path.insert(0, str(ROOT/'style-library'))
+        import integrity
+        integrity.write_baseline(ROOT)
+    except Exception:  # noqa: BLE001 -- the runner writes a first baseline itself if this did not
+        pass
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
@@ -556,6 +566,7 @@ def main():
     for name in ['catalog','projects','settings']:
         target = ROOT/f'style-library/{name}.json'
         if not target.exists(): shutil.copy2(ROOT/f'style-library/{name}.example.json',target)
+    write_integrity_baseline()
     report = capability_report()
     if args.json:
         print(json.dumps(report, indent=2))

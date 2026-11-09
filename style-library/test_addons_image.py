@@ -460,6 +460,47 @@ class AddonsImageTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(captured['body']['prompt'], hebrew)
 
+    # --- final review C1: Foundry endpoint host allowlist and the key-free --check ---
+
+    def test_foundry_endpoint_outside_azure_is_refused_before_any_call(self):
+        prompt_path = self.prompt_file('x')
+        for endpoint in ('https://attacker.example/x', 'https://openai.azure.com.attacker.example/x',
+                         'https://user@my.openai.azure.com/x', 'https://my.openai.azure.com:8443/x',
+                         'http://my.openai.azure.com/x', 'https://my.openai.azure.com/x?k=1'):
+            with self.subTest(endpoint=endpoint):
+                self.enable_image(provider='foundry', key='sk-foundry', endpoint=endpoint)
+                with patch('addons_client.urllib.request.urlopen') as mock_open:
+                    code, report = run_main(['--prompt-file', str(prompt_path), '--out', str(self.studio / 'a.png')])
+                self.assertEqual((code, report['code']), (3, 'addons.bad-endpoint'))
+                self.assertNotIn('sk-foundry', json.dumps(report))
+                mock_open.assert_not_called()
+
+    def test_foundry_endpoint_on_each_azure_host_is_accepted(self):
+        for host in ('my.openai.azure.com', 'my.services.ai.azure.com', 'my.cognitiveservices.azure.com'):
+            with self.subTest(host=host):
+                self.enable_image(provider='foundry', key='sk-foundry', endpoint=f'https://{host}/openai/deployments/d')
+                self.assertEqual(addons_image.check(), {'ok': True, 'provider': 'foundry'})
+
+    def test_check_reports_ready_or_the_coded_reason_without_the_key(self):
+        with patch('addons_client.urllib.request.urlopen') as mock_open:
+            code, report = run_main(['--check'])
+            self.assertEqual((code, report['code']), (3, 'addons.image-disabled'))
+            self.enable_image(key='sk-secret-image')
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                code = addons_image.main(['--check'])
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(buffer.getvalue()), {'ok': True, 'provider': 'openai-images'})
+            self.assertNotIn('sk-secret-image', buffer.getvalue())
+            self.enable_image(provider='foundry', key='sk-foundry', endpoint=None)
+            code, report = run_main(['--check'])
+            self.assertEqual((code, report['code']), (3, 'addons.no-endpoint'))
+        mock_open.assert_not_called()
+
+    def test_without_check_the_prompt_and_out_are_required(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            addons_image.main(['--out', str(self.studio / 'a.png')])
+
 
 if __name__ == '__main__':
     unittest.main()
