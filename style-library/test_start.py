@@ -75,7 +75,11 @@ class StartScriptTests(unittest.TestCase):
             # webbrowser runs $BROWSER with %s replaced; forward slashes survive its shlex split.
             env['BROWSER'] = f'{Path(sys.executable).as_posix()} {(self.base / "opened.py").as_posix()} %s {browser_log.as_posix()}'
         out = subprocess.run([sys.executable, str(self.base / 'start.py'), *flags], capture_output=True, text=True, env=env, timeout=60)
-        self.assertEqual(out.returncode, 0, out.stderr)
+        msg = out.stderr
+        if out.returncode != 0:
+            log = self.base / 'runtime' / 'server.log'
+            msg += '\n--- runtime/server.log ---\n' + (log.read_text(encoding='utf-8', errors='replace')[-2000:] if log.exists() else '(no runtime/server.log was written)')
+        self.assertEqual(out.returncode, 0, msg)
         result = json.loads(out.stdout.strip().splitlines()[0])
         self.pids.append(result['pid'])
         return result
