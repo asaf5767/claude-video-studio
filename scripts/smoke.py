@@ -230,12 +230,11 @@ def hebrew_smoke():
                                 'action': 'approve', 'revision': public['review']['revision'],
                                 'request_id': str(uuid.uuid4())})
 
-        # A genuinely fresh install has no catalog.json yet; the approval below must create
-        # one. On a repeat run in the same checkout this file may already exist from an
-        # earlier smoke run -- that does not invalidate this run, it just means the "fresh
-        # install" edge case was already proven the first time.
+        # The throwaway copy is a fresh install with no catalog.json yet; the final approval
+        # below must create one.
         catalog_path = STYLE_LIBRARY / 'catalog.json'
-        was_fresh_install = not catalog_path.exists()
+        if catalog_path.exists():
+            raise RuntimeError('the smoke studio copy already has a catalog.json')
 
         final_dir = project / 'versions' / 'v02' / 'renders'
         final_dir.mkdir(parents=True, exist_ok=True)
@@ -256,15 +255,45 @@ def hebrew_smoke():
         catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
         if catalog.get('schema_version') != 4 or not catalog.get('entries'):
             raise RuntimeError('final approval did not create a library entry')
-        if was_fresh_install:
-            print(f'hebrew smoke: {project_id} approved a final video with no catalog.json present beforehand')
         print(f'hebrew smoke: {project_id} storyboard + final approved, captions RTL with isolated AI/38')
+
+
+SMOKE_MARKER = '.smoke-studio'
+
+
+def isolated_hebrew_smoke():
+    """Run hebrew_smoke() in a throwaway copy of the shipped studio, never in this one.
+
+    The library code derives every path (projects/, projects.json, catalog.json, logs/)
+    from its own file location, so the only way to keep a smoke run out of the owner's
+    real projects and library is to run it from a copy. The copy holds exactly the files
+    release-files.txt ships, gets its own integrity baseline, and is deleted afterwards."""
+    names = [line.strip() for line in (ROOT / 'release-files.txt').read_text(encoding='utf-8').splitlines()
+             if line.strip() and not line.startswith('#')]
+    with tempfile.TemporaryDirectory(prefix='hebrew-smoke-studio-') as tmp:
+        copy = Path(tmp) / 'studio'
+        for name in names:
+            source = ROOT / name
+            if source.is_file():
+                (copy / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, copy / name)
+        (copy / SMOKE_MARKER).write_text('throwaway smoke-test studio\n', encoding='utf-8')
+        subprocess.run([sys.executable, str(copy / 'style-library' / 'integrity.py'), '--baseline'],
+                       cwd=copy, check=True, capture_output=True)
+        subprocess.run([sys.executable, str(copy / 'scripts' / 'smoke.py'), '--hebrew-smoke-here'],
+                       cwd=copy, check=True)
 
 
 def main():
     argv = sys.argv[1:]
     if argv[:1] == ['--fake-claude-worker']:
         return _fake_claude_worker(argv[1:])
+    if argv == ['--hebrew-smoke-here']:
+        # Only ever inside the throwaway copy isolated_hebrew_smoke() made.
+        if not (ROOT / SMOKE_MARKER).is_file():
+            raise SystemExit('Refusing to run the Hebrew smoke test in a real studio; use --hebrew-only.')
+        hebrew_smoke()
+        return 0
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--skip-render',action='store_true')
     # The Hebrew path alone needs only ffmpeg and a Python stdlib checkout -- no .venv/Pillow
@@ -273,7 +302,7 @@ def main():
     parser.add_argument('--hebrew-only',action='store_true')
     args=parser.parse_args(argv)
     if args.hebrew_only:
-        hebrew_smoke()
+        isolated_hebrew_smoke()
         print('smoke passed')
         return
     project=ROOT/'projects/setup-demo'
@@ -286,7 +315,7 @@ def main():
         print('The completed setup demo already exists and was preserved. This did not rerun the checks. Inspect runtime/smoke-report.json or use a fresh checkout for a new smoke run.')
         print('smoke passed')
         return
-    hebrew_smoke()
+    isolated_hebrew_smoke()
     run([sys.executable,'scripts/studio.py','new','setup-demo'])
     source=project/'raw/synthetic.mp4'
     run(['ffmpeg','-nostdin','-v','error','-n','-f','lavfi','-i','testsrc2=size=360x640:rate=30:duration=4','-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=4','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',source])

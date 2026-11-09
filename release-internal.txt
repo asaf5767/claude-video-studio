@@ -1,2 +1,4 @@
+# R44 (public copy, written by scripts/export_release.py): files the export adds
+# beyond release-files.txt.
 RELEASE-MANIFEST.json
 release-internal.txt

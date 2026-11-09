@@ -31,6 +31,12 @@ def personal(text):
     tokens={token.lower() for token in re.findall(r'[A-Za-z0-9]+',text)}
     return any(hashlib.sha256(token.encode()).hexdigest() in PRIVATE_NAME_SHA256 for token in tokens)
 
+# The public repo is a committed export: it tracks RELEASE-MANIFEST.json, which no allowlist
+# names. Every export carries its own release-internal.txt declaring that file (and itself),
+# so `check_release.py --git-ref HEAD` passes in the public repo's CI too.
+PUBLIC_INTERNAL=('# R44 (public copy, written by scripts/export_release.py): files the export adds\n'
+                 '# beyond release-files.txt.\nRELEASE-MANIFEST.json\nrelease-internal.txt\n')
+
 def internal_paths():
     """R44: exact paths (release-internal.txt, one per line, '#' comments allowed -- no
     globs) that the private repo tracks in git but this exporter must never read or ship.
@@ -85,6 +91,7 @@ def main():
     with zipfile.ZipFile(archive,'x',zipfile.ZIP_DEFLATED) as z:
         for name,data in rows:z.writestr(args.name+'/'+name,data)
         z.writestr(args.name+'/RELEASE-MANIFEST.json',json.dumps(manifest,indent=2)+'\n')
+        z.writestr(args.name+'/release-internal.txt',PUBLIC_INTERNAL)
     archive.with_suffix('.manifest.json').write_text(json.dumps(manifest,indent=2)+'\n', encoding='utf-8')
     print(json.dumps({'archive':str(archive),'files':len(rows),'sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'published':False}))
 

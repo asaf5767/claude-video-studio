@@ -72,7 +72,10 @@ window.EffectsBoard = (() => {
 
   // ---- data ----
   async function getJSON(url) {
-    const response = await fetch(url, {cache: 'no-store'});
+    // One retry on a dropped connection (not on an HTTP error): a busy local server can
+    // reset a request while the page is loading many files at once.
+    const response = await fetch(url, {cache: 'no-store'})
+      .catch(() => new Promise(r => setTimeout(r, 300)).then(() => fetch(url, {cache: 'no-store'})));
     if (!response.ok) throw Error(String(response.status));
     return response.json();
   }

@@ -88,6 +88,12 @@ class ReleaseConsistencyTests(unittest.TestCase):
         for name in ['.gitattributes','scripts/check_js.mjs','scripts/run_node_tests.mjs',
                      'scripts/test_check_js.mjs','scripts/test_run_node_tests.mjs']:
             self.assertIn(name,self.files)
+    def test_public_export_declares_its_own_extra_files(self):
+        # The public repo commits the export as-is, so its CI's check_release --git-ref HEAD
+        # must find RELEASE-MANIFEST.json declared by the release-internal.txt the export writes.
+        declared={l for l in export.PUBLIC_INTERNAL.splitlines() if l and not l.startswith('#')}
+        self.assertEqual(declared,{'RELEASE-MANIFEST.json','release-internal.txt'})
+        for name in declared:self.assertNotIn(name,self.files)
     def test_cited_planning_contracts_ship(self):
         # R44: these three docs/plan/*.md files ship, not just stay tracked internally --
         # learn-style-contract.md is cited directly by shipped code (inspiration.py);

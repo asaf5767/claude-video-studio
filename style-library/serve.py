@@ -661,6 +661,14 @@ class Handler(SimpleHTTPRequestHandler):
     def range_error(self,size):
         self.send_response(416);self.send_header('Content-Range',f'bytes */{size}');self.send_header('Content-Length','0');self.end_headers()
 
+class StudioServer(ThreadingHTTPServer):
+    """The page loads a dozen files at once (several tabs even more); the stdlib default
+    listen backlog of 5 made the OS reset the extra connections, so styles or the effects
+    list sometimes failed to load. Daemon threads let Ctrl+C stop the studio right away."""
+    request_queue_size = 64
+    daemon_threads = True
+
+
 def refresh_tool_path():
     # Node/FFmpeg/whisper installed after the window that started us opened are not on our
     # PATH yet (Windows reads PATH once; a fresh Homebrew is not on it either). Pick them up
@@ -687,6 +695,6 @@ if __name__=='__main__':
     # actual port. The one template (atomic.write_launch_js) is shared with start.py.
     from atomic import write_launch_js
     write_launch_js(BASE/'dist',url)
-    server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
+    server=StudioServer(('127.0.0.1',args.port),Handler)
     print(json.dumps({'url':url,'app':'ai-video-studio'}),flush=True)
     server.serve_forever()

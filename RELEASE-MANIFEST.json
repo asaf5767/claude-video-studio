@@ -1,5 +1,5 @@
 {
-  "candidate": "public-security",
+  "candidate": "pub-20261109b",
   "files": [
     {
       "path": ".gitignore",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".github/workflows/check.yml",
-      "bytes": 3287,
-      "sha256": "7db25af3e6f2384377a7d34c9af56c47ebfc602509491a93c9d84d17579bba20"
+      "bytes": 3697,
+      "sha256": "a8823aa2e3a8a680ee07cde7589eb381ef32ba7fcdb432e0a0880fb5aed759a8"
     },
     {
       "path": "AGENTS.md",
@@ -223,8 +223,8 @@
     },
     {
       "path": "scripts/export_release.py",
-      "bytes": 6910,
-      "sha256": "36753ece1d7e8563e08558cbf17a6a79f4c454de32559eb4b918041437c0c69b"
+      "bytes": 7439,
+      "sha256": "154f508655176f080061546e850460bd4ff959e01b2af7544e09ab04de4d3985"
     },
     {
       "path": "scripts/check_release.py",
@@ -258,8 +258,8 @@
     },
     {
       "path": "scripts/smoke.py",
-      "bytes": 22457,
-      "sha256": "d420546ab909eeb412d1ef8a2c7a797a6fd0db1b088cef1192425cbf603f66fa"
+      "bytes": 23905,
+      "sha256": "9cb566a29c79dcf323fe4e40906d537a6272a318394daa8fc477adfda1b08d2e"
     },
     {
       "path": "scripts/studio.py",
@@ -323,8 +323,8 @@
     },
     {
       "path": "style-library/serve.py",
-      "bytes": 49646,
-      "sha256": "541e646c431e940d1523ec036d93abe7803352bd607668041f4ba625e4505347"
+      "bytes": 50007,
+      "sha256": "f4b27466f4db568fac3bb80a9b1780a120a8b630aac720d3cd6cec093744df43"
     },
     {
       "path": "style-library/start.py",
@@ -378,8 +378,8 @@
     },
     {
       "path": "style-library/test_release.py",
-      "bytes": 17935,
-      "sha256": "27c6eda92aee30353c30cc6a8bef4b7ace163546918e9ae5b5865855128af394"
+      "bytes": 18433,
+      "sha256": "7d1af745832dc66918f276381316a523bfa59d14969525ca57ec973f08dd055d"
     },
     {
       "path": "style-library/test_serve.py",
@@ -403,8 +403,8 @@
     },
     {
       "path": "style-library/dist/studio.css",
-      "bytes": 30960,
-      "sha256": "64559a55b127252558ac69cb96c518ffadc2bfa0e8fe74e985b8e66fe27f875c"
+      "bytes": 30944,
+      "sha256": "898e799147ee585a9b3c4a640ae73f5854e6b4dbdd8da49f7617bce0f291340f"
     },
     {
       "path": "style-library/dist/app.js",
@@ -543,8 +543,8 @@
     },
     {
       "path": "style-library/test_setup.py",
-      "bytes": 11613,
-      "sha256": "3509b45678eaeeeaa90fe3778e5cb730259e8b5b160fb901cb20a977ce2d010e"
+      "bytes": 12854,
+      "sha256": "c47e4f0eca0c736ee4c10c9b44668f7390f7ae982e36d9a1fbc18f45d3636fc5"
     },
     {
       "path": "style-library/test_setup_messages.py",
@@ -988,8 +988,8 @@
     },
     {
       "path": "style-library/test_choices_server.py",
-      "bytes": 10884,
-      "sha256": "4719bc66bc4ece088c83ce2a3fd5418d43852800809cb49300ef7e77a0456ebe"
+      "bytes": 11217,
+      "sha256": "2dabb7193cae4ffd4c2db3aa451e540523b72194f724a2cabfd0672d2dfe8ed4"
     },
     {
       "path": "style-library/dist/choices-ui.js",
@@ -1038,8 +1038,8 @@
     },
     {
       "path": "style-library/dist/effects-ui.js",
-      "bytes": 23653,
-      "sha256": "f75a14419c1d1cb95f16aa17e2208a80d3ef91912c62f637856cc026a34e8cc2"
+      "bytes": 23912,
+      "sha256": "f0dc81194f12b00c7c5407dad2193f33ae655622ea8e0059454042d670e66b4f"
     },
     {
       "path": "style-library/dist/effects.css",
@@ -1078,8 +1078,8 @@
     },
     {
       "path": "style-library/integrity.py",
-      "bytes": 10912,
-      "sha256": "55ba33653f4d522b9643b38826a94664da0021ec54dd00ea3aefc923b78f46b1"
+      "bytes": 11062,
+      "sha256": "6a02ee4db610ebad540724bb2cc96ae1aaa26585cdbf7a838c4bf0a06b7f29b0"
     },
     {
       "path": "style-library/learn_analysis.py",
@@ -1373,8 +1373,8 @@
     },
     {
       "path": "style-library/test_start.py",
-      "bytes": 7406,
-      "sha256": "0895dc08e5ab09f6fc19a5d432509d462e1f84484412f096b375ef1de265d7a7"
+      "bytes": 7684,
+      "sha256": "52f38bf6eb72e75bbc53f040848855c4af954d2e975f1a632d7a608ce4d71a93"
     },
     {
       "path": "docs/USABILITY-CHECK.md",

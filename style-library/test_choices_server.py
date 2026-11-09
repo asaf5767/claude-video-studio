@@ -11,7 +11,7 @@ from http.server import ThreadingHTTPServer
 
 import project_index as index
 import choices
-from serve import Handler
+from serve import Handler, StudioServer
 
 
 class QuietHandler(Handler):
@@ -219,6 +219,12 @@ class ChoicesServerTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertNotIn('_seq', json.loads(resp))
 
+
+class StudioServerTest(unittest.TestCase):
+    def test_server_accepts_a_burst_of_connections(self):
+        # A page load opens a dozen connections at once; the stdlib backlog of 5 dropped some.
+        self.assertGreaterEqual(StudioServer.request_queue_size, 64)
+        self.assertTrue(StudioServer.daemon_threads)
 
 if __name__ == '__main__':
     unittest.main()

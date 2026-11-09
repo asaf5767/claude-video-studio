@@ -115,6 +115,22 @@ class SetupTests(unittest.TestCase):
             self.assertEqual((base/'catalog.json').read_bytes(),before)
             for name in ['projects','settings']:self.assertEqual((base/f'{name}.json').read_bytes(),(base/f'{name}.example.json').read_bytes())
             self.assertFalse((base/'writing-voice.json').exists())
+    def test_hebrew_smoke_refuses_to_run_in_a_real_studio(self):
+        # The Hebrew smoke writes projects, projects.json and catalog.json; it may only run in
+        # the marked throwaway copy that --hebrew-only makes, never in the owner's studio.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            with patch.object(smoke,'ROOT',root),patch.object(smoke,'hebrew_smoke') as run,patch.object(sys,'argv',['smoke','--hebrew-smoke-here']):
+                with self.assertRaisesRegex(SystemExit,'real studio'):smoke.main()
+            run.assert_not_called()
+            (root/smoke.SMOKE_MARKER).write_text('x', encoding='utf-8')
+            with patch.object(smoke,'ROOT',root),patch.object(smoke,'hebrew_smoke') as run,patch.object(sys,'argv',['smoke','--hebrew-smoke-here']):
+                smoke.main()
+            run.assert_called_once()
+    def test_hebrew_only_smoke_runs_in_a_copy(self):
+        with patch.object(smoke,'isolated_hebrew_smoke') as isolated,patch.object(smoke,'hebrew_smoke') as direct,patch.object(sys,'argv',['smoke','--hebrew-only']),contextlib.redirect_stdout(io.StringIO()):
+            smoke.main()
+        isolated.assert_called_once();direct.assert_not_called()
     def test_partial_demo_is_preserved_and_fails(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'projects/setup-demo').mkdir(parents=True)
