@@ -32,7 +32,9 @@ from atomic import atomic_write
 
 # G6: everything Python can import (.py, .pyw, .pyc, .pyd and platform extension modules) plus
 # .pth and JavaScript.
-CODE_SUFFIXES = tuple(sorted(set(importlib.machinery.all_suffixes()) | {'.pth', '.js', '.mjs', '.cjs'}))
+CODE_SUFFIXES = tuple(sorted(set(importlib.machinery.all_suffixes())
+                            # .pyw and .pyd exist only in Windows' all_suffixes(); watch them everywhere.
+                            | {'.pyw', '.pyd', '.pth', '.js', '.mjs', '.cjs'}))
 CODE_ROOTS = ('scripts', 'style-library', '.claude', 'node_modules/hyperframes')
 # Generated or private places inside the code roots that are not code anyone ships. __pycache__
 # is walked separately: only bytecode with no source beside it counts (Python writes the rest).
