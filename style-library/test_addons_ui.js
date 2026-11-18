@@ -120,6 +120,18 @@ test('submitting sends one POST with both add-ons; a typed key is included, an e
   });
 });
 
+test('index.html loads addons-ui.js after app.js, which defines the $ helper it uses at top level', () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, 'dist/index.html'), 'utf8');
+  const app = html.indexOf('<script src="app.js" defer></script>');
+  const addons = html.indexOf('<script src="addons-ui.js" defer></script>');
+  assert.notEqual(app, -1, 'app.js is still loaded');
+  assert.notEqual(addons, -1, 'addons-ui.js is still loaded');
+  // Both tags are deferred, so they run in document order. addons-ui.js calls $() while its
+  // IIFE is being evaluated, so loading it first throws ReferenceError and window.Addons is
+  // never created -- the footer trigger then does nothing at all.
+  assert.ok(addons > app, 'addons-ui.js must come after app.js in index.html');
+});
+
 test('RULING R50: Foundry is not offered in the dialog, but a Foundry choice made elsewhere is kept', async () => {
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, 'dist/index.html'), 'utf8');
   assert.doesNotMatch(html, /value="foundry"/);
